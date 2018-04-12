@@ -3,7 +3,11 @@ from numpy import array, in1d, vstack, hstack, dstack
 import matplotlib.pyplot as p
 import os, glob, shutil
 from sys import argv
-from tqdm import trange
+try:
+    from tqdm import trange
+    myrange=trange
+except ImportError:
+    myrange=range
 
 '''
 
@@ -18,14 +22,19 @@ This script will:
     is identical.  So I can vectorize future incremental calculations.
 '''
 
-
 expt = argv[1]
 # Directory name and prefix of the npy
 pname = 'TTGM-{}_FS19SS6'.format(expt)
 
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
-Xmin, Xmax, Ymin, Ymax = n.genfromtxt('../{}/box_limits.dat'.format(pname),
+thick = key[ key[:,0] == int(expt), 6 ].ravel()
+# Expand the box limits a bit
+box_lims = n.genfromtxt('../{}/box_limits.dat'.format(pname),
                                        delimiter=',')
+Xmin, Xmax, Ymin, Ymax = box_lims
+Ymin -= thick/2
+Ymax += thick/2
+                                      
 last = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',', dtype=int)[-1,0]
                                        
 def pair(D):

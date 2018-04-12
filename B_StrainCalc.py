@@ -4,7 +4,11 @@ import matplotlib.pyplot as p
 import figfun as f
 import os, glob, shutil
 from sys import argv
-from tqdm import trange
+try:
+    from tqdm import trange
+    myrange=trange
+except ImportError:
+    myrange=range
 
 '''
 This script will:
@@ -12,14 +16,12 @@ This script will:
     - Append those strains to the incoming data and save into a new npz
 '''
 
-
 expt = argv[1]
 # Directory name and prefix of the npy
 pname = 'TTGM-{}_FS19SS6'.format(expt)
 
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
-Xmin, Xmax, Ymin, Ymax = n.genfromtxt('../{}/box_limits.dat'.format(pname),
-                                       delimiter=',')
+
 STF = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',')
 last = int(STF[-1,0])
 sig00 = STF[:,2]/2  # Hoop sts (assumed 1/2 axial)
@@ -75,7 +77,7 @@ de[0] = 0
 # Empty array for appended strains
 dnew = {}
 dnew['stage_0'] = n.c_[d['stage_0'], de[0]]
-for k in trange(1,last+1):
+for k in myrange(1,last+1):
     Aname = 'stage_{}'.format(k)
     Bname = 'stage_{}'.format(k-1)
     # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
@@ -92,7 +94,7 @@ for k in trange(1,last+1):
     # Now append and save to dnew
     dnew[Aname] = n.c_[A, de[k]]
     if not n.array_equal(d[Aname], dnew[Aname][:,:12]):
-        raise ValueError('Your arrays arent equivalent!")
+        raise ValueError('Your arrays arent equivalent!')
 
 d.close()
 n.savez_compressed('../{}/{}_PointsInLastWithStrains.npz'.format(pname, pname), **dnew)
@@ -124,11 +126,13 @@ p.ylabel('$\\mathsf{e}_\\mathsf{e}$')
 ax1.axis(xmin=0)
 f.myax(p.gca())
 f.ezlegend(p.gca())
-p.savefig('../{}/IncrementalAnalysis1.png'.format(pname))
+p.savefig('../{}/IncrementalAnalysis1.png'.format(pname), dpi=125)
 
 # Epsilon v gamma
 fig2 = p.figure()
 ax2 = fig2.add_subplot(111)
+for gam, eps in zip(-2*de[:,:,1].T, de[:,:,2].T):
+    ax2.plot(gam, eps, 'C1', alpha=0.05)
 ax2.plot(-2*de[:,:,1].mean(axis=1), de[:,:,2].mean(axis=1), label='Mean', zorder=50)
 if len(oldmaxloc) == 1:
     ax2.plot(-2*de[:,oldmaxloc,1], de[:,oldmaxloc,2], label='Old Max Pt')
@@ -141,4 +145,4 @@ ax2.set_ylabel('$\\mathsf{e}_\\mathsf{x}$')
 ax2.axis(xmin=0, ymin=0)
 f.myax(ax2)
 f.ezlegend(ax2)
-fig2.savefig('../{}/IncrementalAnalysis2.png'.format(pname))
+fig2.savefig('../{}/IncrementalAnalysis2.png'.format(pname), dpi=125)
