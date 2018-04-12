@@ -22,9 +22,10 @@ This script will:
     is identical.  So I can vectorize future incremental calculations.
 '''
 
+
 expt = argv[1]
 # Directory name and prefix of the npy
-pname = 'TTGM-{}_FS19SS6'.format(expt)
+pname = 'TT2-{}_FS19SS6'.format(expt)
 
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
 thick = key[ key[:,0] == int(expt), 6 ].ravel()
@@ -49,7 +50,7 @@ def pair(D):
                                        
 # Empty dict ... I should really use and HDF5 now
 d = {}
-for k in trange(last,-1,-1):
+for k in myrange(last,-1,-1):
     dname = 'stage_{}'.format(k)
     # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
     # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) *)

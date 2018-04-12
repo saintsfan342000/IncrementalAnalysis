@@ -9,7 +9,7 @@ try:
     myrange=trange
 except ImportError:
     myrange=range
-
+    
 '''
 This script will:
     - Calculate the incremental strains for every point in the npz
@@ -18,7 +18,7 @@ This script will:
 
 expt = argv[1]
 # Directory name and prefix of the npy
-pname = 'TTGM-{}_FS19SS6'.format(expt)
+pname = 'TT2-{}_FS19SS6'.format(expt)
 
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
 
