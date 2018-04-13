@@ -91,4 +91,4 @@ for k in range(last,-1,-1):
 # Now save the dictionary as a compressed numpy array (to save a bit of space)
 # Doesn't appear to take any more time to load up whether it's compressed
 # Takes a few seconds to save though
-n.savez_compressed('../{}/{}_PointsInLast.npz'.format(pname, pname), **d)
+n.savez_compressed('../{}/IncrementalAnalysis/{}_PointsInLast.npz'.format(pname, pname), **d)
