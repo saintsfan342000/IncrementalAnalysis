@@ -1,51 +1,14 @@
-'''
-
-I think I know what the problem is with MaxPt traceback:
-    - Before I was pulling from the entire export file, so the last stage max
-    was ~always in there.  But now I am only reeading from passing points.  It
-    didn't necessarily pass every stage, especially early on.  So that's why
-    deeq for that point is zero for most stages (because it isn't in there so
-    I set deeq for that stage to zero)
-        - The solution is to either go back to reading from the entire npy
-        or to save a mat with just points in the box
-    - For the mean P2P difference:  That also has to do with the fact that now 
-    I am pulling only from the passing points.  I looking in ALL of B for A's 
-    passing points.  Now I am only lookin in B's passing points.
-    - In other words, it appears highly unlikely that I will ever find a point
-    that passed every stage.
-
-    - *** OLD max (MaxTracedBack) is recovered with test == True ***, meaning I read from the
-    whole point field in both A and B. TEST in this manner destroys the F avg and P2P but that
-    is because I do no filtering on either
-    - Reading from all of B, but filtered A (i.e. loadmat(A) and load(B.npy) recovers the old P2P and old Avg
-    But this screws up MaxTracedBack because that last-stage-max isn't in every stage passing (i.e., in every A)
-    
-    I think the best thing to do going forward is:
-    Go thru each expt, and save a mat that has, say the top five UNFILTERED LEp points in each column for each stage.  Save everything (coords and F)
-    Then I can do anything I want with this info without the difficulty of reading in a whole npy
-    Going forward, maybe I should also start saving the strain components, but that becomes a lot of data and a lot to manage, not to mention I run back into 
-    the problem of each point not showing up in each stage.
-    So maybe, if I keep the top 5, I should start at last, then go backwards and only keep points that show up in (all?) preceding stages
-
-    That won't be so bad.  I can create a new column aramX+aramY*j, i.e. a complex number, to use n.in1d
-    Use in1d for every stage, then downselect, then create a 3D array?  And vectorize the operation
-    
-    - So what is the best route to go...?
-    
-'''
-
-
 import numpy as n
 from numpy import array, nanmean, nanstd, sqrt
 from numpy import hstack, vstack, dstack
 n.set_printoptions(linewidth=300,formatter={'float_kind':lambda x:'{:g}'.format(x)})
 import matplotlib.pyplot as p
+import figfun as f
 import os
 from tqdm import tqdm, trange
 from sys import argv
 from scipy.io import savemat, loadmat
 
-test = True     
 
 expt = argv[1]
 proj = 'TT2-{}_FS19SS6'.format(expt)
@@ -57,20 +20,23 @@ FS = int( proj.split('_')[1].split('SS')[0].split('S')[1] )
 SS = int( proj.split('_')[1].split('SS')[1] )
 arampath = '../{}/AramisBinary'.format(proj)
 prefix = '{}_'.format(proj)
-savepath = '../{}'.format(proj)
+savepath = '../{}/IncrementalAnalysis'.format(proj)
 
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
 alpha = key[ key[:,0] == int(expt), 3 ]
 
-os.chdir(savepath)
-
 # [0]Stg [1]Time [2]AxSts [3]ShSts [4]AxForce [5]Torque [6]MTS Disp [7]MTS Rot
-STF = n.genfromtxt('STF.dat', delimiter=',')
+STF = n.genfromtxt('../{}/STF.dat'.format(proj), delimiter=',')
 last = int(STF[-1,0])
-maxi, maxj = n.genfromtxt('max.dat', delimiter=',', usecols=(-2,-1), unpack=True)
-Xmin,Xmax,Ymin,Ymax = n.genfromtxt('box_limits.dat', delimiter=',')
-profStg = n.genfromtxt('prof_stages.dat', delimiter=',', dtype=int)
-LL = profStg[2]
+maxi, maxj = n.genfromtxt('../{}/max.dat'.format(proj), dtype=int,
+                        delimiter=',', usecols=(-2,-1), unpack=True)
+Xmin,Xmax,Ymin,Ymax = n.genfromtxt('../{}/box_limits.dat'.format(proj), delimiter=',')
+if expt == '18':
+    dr = n.genfromtxt('../{}/disp-rot.dat'.format(proj), delimiter=',')[:,4]
+    xlab = '$\\delta/\\mathsf{L}$'
+else:
+    dr = n.genfromtxt('../{}/disp-rot.dat'.format(proj), delimiter=',')[:,5]
+    xlab = '$\\Phi$'
 
 def increm_strains(A00,A01,A10,A11,B00,B01,B10,B11):
     de00 = (2*((A00 - B00)*(A11 + B11) - (A01 - B01)*(A10 + B10))/
@@ -90,17 +56,29 @@ def increm_strains(A00,A01,A10,A11,B00,B01,B10,B11):
 
 def deeq(de00, de01, de11, sig00, sig01, sig11, sigeq):
     return (sig00*de00 + sig11*de11 - 2*sig01*de01)/sigeq
+
+def pair(D):
+    '''
+    Cantor pairing function from wikipedia
+    D must be (nx2)
+    '''
+    if (D.ndim != 2) and (D.shape[1] != 2):
+        raise ValueError('Array must be nx2')
+    else:
+        return (D[:,0] + D[:,1]) * (D[:,0] + D[:,1] + 1)/2 + D[:,1]
     
 # Averaging F  for passing points
-deeq2 = n.empty((last+1,2))
+deeq2 = n.empty((last+1,5))
 # Point to point for passing points
-deeq3 = n.empty((last+1,2))
+deeq3 = n.empty((last+1,5))
 # Max point from last stage traced all the way back
-deeq4 = n.empty((last+1,2))
+deeq4 = n.empty((last+1,5))
+# Max trace back with average of neighbors
+deeq6 = n.empty((last+1,5))
 # Max point each stage
-deeq5 = n.empty((last+1,2))
+deeq5 = n.empty((last+1,5))
 
-d = loadmat('{}_PassingPts.mat'.format(proj))
+d = loadmat('../{0}/{0}_PassingPts.mat'.format(proj))
 for k in trange(1,last+1):
     
     #if k%25 == 0:  print(k, end=',', flush=True)
@@ -119,26 +97,11 @@ for k in trange(1,last+1):
     # Loading the "passing points" rather than the whole field means I don't have to have
     # all that code used to filter based on eps/gamm ratio
     A = d['stage_{}'.format(k)]
-    if test == True:
-        # TEMPORARY TEST CODE
-        pass
-        #A = n.load('AramisBinary/TTGM-{}_FS19SS6_{}.npy'.format(expt,k))
-        #Xmin, Xmax, Ymin, Ymax = n.genfromtxt('box_limits.dat', delimiter=',').ravel()
-        #A = A[ (A[:,2]>=Xmin) & (A[:,2]<=Xmax) & (A[:,3]>=Ymin) & (A[:,3]<=Ymax), :]
-        # = A[:, [0,1,8,9,10,11]]
-  
-  
+    
     if k == 1:
         B = n.zeros_like(A)
         B[:,2], B[:,-1] = 1, 1
         B[:,:2] = A[:,:2].copy()
-    else:
-        B = d['stage_{}'.format(k-1)]
-        if test == True:
-            # TEMPORARY TEST CODE
-            B = n.load('AramisBinary/{}_{}.npy'.format(proj,k-1))
-            B = B[ (B[:,2]>=Xmin) & (B[:,2]<=Xmax) & (B[:,3]>=Ymin) & (B[:,3]<=Ymax), :]
-            B = B[:, [0,1,8,9,10,11]]
    
     ##  deeq2: Average F for all passing!
     if k == 1:
@@ -148,6 +111,7 @@ for k in trange(1,last+1):
     de00, de01, de11 = increm_strains(A00t,A01t,A10t,A11t,B00t,B01t,B10t,B11t)
     deeq2[k,0] = (sig00*de00 + sig11*de11 - 2*sig01*de01)/sigvm    
     deeq2[k,1] = (sig00*de00 + sig11*de11 - 2*sig01*de01)/sigh8        
+    deeq2[k,2:] = n.c_[de00, de01, de11]
     # For next stage, keep A and assign it to B
     B00t, B01t, B10t, B11t = A00t, A01t, A10t, A11t
     
@@ -167,49 +131,81 @@ for k in trange(1,last+1):
                                         (*A[:,2:].T, *Btemp[:,2:].T))])
     deeq3[k,0] = deeq(de00, de01, de11, sig00, sig01, sig11, sigvm)
     deeq3[k,1] = deeq(de00, de01, de11, sig00, sig01, sig11, sigh8)
+    deeq3[k,2:] = n.c_[de00, de01, de11]
     
     ## deeq4:  Max Point traced all the way back
-    if test == True:
-        wholeA = n.load('AramisBinary/{}_{}.npy'.format(proj,k)).take([0,1,8,9,10,11], axis=1)
+    wholeA = n.load('../{0}/AramisBinary/{0}_{1}.npy'.format(proj,k)).take([0,1,8,9,10,11], axis=1)
     maxptA = wholeA[ (wholeA[:,0] == maxi[-1]) & (wholeA[:,1] == maxj[-1]) ].ravel()
     if k == 1:
         maxptB = n.array([0,0,1,0,0,1])
-    else:
-        maxptB = B[ (B[:,0] == maxi[-1]) & (B[:,1] == maxj[-1]) ].ravel()
     if (len(maxptA) == 0) or (len(maxptB) == 0):
         deeq4[k] = 0
     else:
         de00, de01, de11 = increm_strains(*(*maxptA[2:], *maxptB[2:]))
         deeq4[k,0] = deeq(de00, de01, de11, sig00, sig01, sig11, sigvm)
         deeq4[k,1] = deeq(de00, de01, de11, sig00, sig01, sig11, sigh8)
-    
-    # deeq5:  Max point each stage
-    maxptA = A[ (A[:,0] == maxi[k]) & (A[:,1] == maxj[k]) ].ravel()
+        deeq4[k,2:] = n.c_[de00, de01, de11]
+    maxptB = maxptA.copy()
+        
+    ## deeq6:  Max point traced back averaging F with its neighbors
+    ID = pair(wholeA[:,:2])
+    nbhd = []
+    for i in range(maxi[-1]-1, maxi[-1]+2):
+        for j in range(maxj[-1]-1, maxj[-1]+2):
+            if (pair(n.c_[i,j]) in ID):
+                loc = n.nonzero( ID == pair(n.c_[i,j]) )[0][0]
+                nbhd.append(loc)
+    AFavg = wholeA.take(nbhd, axis=0).mean(axis=0)
     if k == 1:
-        maxptB = n.array([0,0,1,0,0,1])
+        BFavg = n.array([0,0,1,0,0,1])
+    if (len(AFavg) == 0) or (len(BFavg) == 0):
+        deeq6[k] = 0
     else:
-        maxptB = B[ (B[:,0] == maxi[k-1]) & (B[:,1] == maxj[k-1]) ].ravel()
-    if (len(maxptA) == 0) or (len(maxptB) == 0):
+        de00, de01, de11 = increm_strains(*(*AFavg[2:], *BFavg[2:]))
+        deeq6[k,0] = deeq(de00, de01, de11, sig00, sig01, sig11, sigvm)
+        deeq6[k,1] = deeq(de00, de01, de11, sig00, sig01, sig11, sigh8)
+        deeq6[k,2:] = n.c_[de00, de01, de11]    
+    BFavg = AFavg.copy()
+        
+    # deeq5:  Max point each stage
+    maxptAk = A[ (A[:,0] == maxi[k]) & (A[:,1] == maxj[k]) ].ravel()
+    if k == 1:
+        maxptBk = n.array([0,0,1,0,0,1])
+    if (len(maxptAk) == 0) or (len(maxptBk) == 0):
         deeq5[k] = 0
     else:
-        de00, de01, de11 = increm_strains(*(*maxptA[2:], *maxptB[2:]))
+        de00, de01, de11 = increm_strains(*(*maxptAk[2:], *maxptBk[2:]))
         deeq5[k,0] = deeq(de00, de01, de11, sig00, sig01, sig11, sigvm)
         deeq5[k,1] = deeq(de00, de01, de11, sig00, sig01, sig11, sigh8)
+        deeq5[k,2:] = n.c_[de00, de01, de11]
+    maxptBk = maxptAk.copy()
 
+    B = wholeA.copy()
+        
 deeq2[0] = 0
 deeq3[0] = 0
 deeq4[0] = 0
 deeq5[0] = 0
+deeq6[0] = 0
 
-for i in [deeq2, deeq3, deeq4, deeq5]:
+for i in [deeq2, deeq3, deeq4, deeq5, deeq6]:
     i[ n.any(n.isnan(i), axis=1) ] = 0
 
-headerline = ('[0]Stage, [1-2]AvgF-Passing-VM-H8, [3-4]PassingP2P-VM-H8, [5-6]MaxPtTracedBack-VM-H8, [7-8]MaxPtEachStage-VM-H8')
-X = n.c_[STF[:,0], deeq2.cumsum(axis=0), deeq3.cumsum(axis=0), deeq4.cumsum(axis=0), deeq5.cumsum(axis=0)]
-if test == True:
-    fname='IncrementalStrainTEST.dat'
-else:
-    fname='IncrementalStrain.dat'
+headerline = ('[0-4]AvgF-Passing-VM-H8-de00-01-11, [5-9]PassingP2P-VM-H8, [10-14]MaxPtTracedBack-VM-H8,' + 
+                '[15-19]MaxPtEachStage-VM-H8, [20-24]MaxPtTrace/NbhdFavg')
+X = n.c_[deeq2.cumsum(axis=0), deeq3.cumsum(axis=0),
+         deeq4.cumsum(axis=0), deeq5.cumsum(axis=0), deeq6.cumsum(axis=0)]
+fname='../{0}/IncrementalAnalysis/{0}_OldFiltering.dat'.format(proj)
 n.savetxt(fname, X=X, header=headerline,
-        fmt = '%.0f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f'
-        )
+        fmt = '%.6f', delimiter=', ')
+
+
+p.style.use('mysty')        
+labs = ['Avg_AllPass', 'Avg_P2P', 'LastMax_TraceBk', 'Max_EachStgP2P','LastMax_Trace_Nbhd']
+for i in range(5):
+    p.plot(dr,X[:,i*5], label=labs[i])
+p.xlabel(xlab)
+p.ylabel('e$_\\mathsf{e}$')
+f.ezlegend(p.gca(), loc=2)
+p.axis(xmin=0,ymin=0)
+p.savefig('../{0}/IncrementalAnalysis/{0}_OldFiltering.png'.format(proj), dpi=125)
