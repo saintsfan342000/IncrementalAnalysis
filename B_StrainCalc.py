@@ -70,7 +70,7 @@ def deeq(E,sig):
     return (E[:,0]*sig[0]+E[:,2]*sig[2]-2*E[:,1]*sig[1])/sig[3]
 
 # Load up the npz
-d = n.load('../{0}/IncrementalAnalysis/{0}_PointsInLast.npz'.format(pname))
+d = n.load('../{0}/IncrementalAnalysis/PointsInLast.npz'.format(pname))
 # An empty 3D array where I'll store each point's de00, de01, de11, and deeqVM, deeqH8
 de = n.empty((last+1, d['stage_0'].shape[0], 5))
 de[0] = 0
@@ -97,7 +97,7 @@ for k in myrange(1,last+1):
         raise ValueError('Your arrays arent equivalent!')
 
 d.close()
-n.savez_compressed('../{}/IncrementalAnalysis/{}_PointsInLastWithStrains.npz'.format(pname, pname), **dnew)
+n.savez_compressed('../{}/IncrementalAnalysis/PointsInLastWithStrains.npz'.format(pname), **dnew)
     
 # Let's see if old-style calc last stage max is in the new datasetmaxloc = n.nonzero( (A[:,0] == maxij[-1,0]) & (A[:,1] == maxij[-1,1]) )[0]
 oldmaxloc = n.nonzero( (A[:,0] == maxij[-1,0]) & (A[:,1] == maxij[-1,1]) )[0]

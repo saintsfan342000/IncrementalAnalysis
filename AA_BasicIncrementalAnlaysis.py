@@ -195,7 +195,7 @@ headerline = ('[0-4]AvgF-Passing-VM-H8-de00-01-11, [5-9]PassingP2P-VM-H8, [10-14
                 '[15-19]MaxPtEachStage-VM-H8, [20-24]MaxPtTrace/NbhdFavg')
 X = n.c_[deeq2.cumsum(axis=0), deeq3.cumsum(axis=0),
          deeq4.cumsum(axis=0), deeq5.cumsum(axis=0), deeq6.cumsum(axis=0)]
-fname='../{0}/IncrementalAnalysis/{0}_OldFiltering.dat'.format(proj)
+fname='../{0}/IncrementalAnalysis/OldFilteringResults.dat'.format(proj)
 n.savetxt(fname, X=X, header=headerline,
         fmt = '%.6f', delimiter=', ')
 
@@ -208,4 +208,5 @@ p.xlabel(xlab)
 p.ylabel('e$_\\mathsf{e}$')
 f.ezlegend(p.gca(), loc=2)
 p.axis(xmin=0,ymin=0)
-p.savefig('../{0}/IncrementalAnalysis/{0}_OldFilteringResults.png'.format(proj), dpi=125)
+f.myax(p.gca())
+p.savefig('../{0}/IncrementalAnalysis/OldFilteringResults.png'.format(proj), dpi=125)

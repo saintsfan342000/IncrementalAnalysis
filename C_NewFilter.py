@@ -83,7 +83,7 @@ dmean = n.genfromtxt('../{}/mean.dat'.format(pname), delimiter=',', usecols=(11)
 maxIJs = n.genfromtxt('../{}/max.dat'.format(pname), delimiter=',', usecols=(11,12))
 dmax = n.genfromtxt('../{}/MaxPt.dat'.format(pname), delimiter=',')
 
-d = n.load('../{0}/IncrementalAnalysis/{0}_PointsInLastWithStrains.npz'.format(pname))
+d = n.load('../{0}/IncrementalAnalysis/PointsInLastWithStrains.npz'.format(pname))
 A = n.empty((last+1,*d['stage_0'].shape))
 for k in range(last+1):
     A[k] = d['stage_{}'.format(k)].copy()
@@ -176,10 +176,10 @@ loc = de[-1, :, 0].argmax()
 LE = LEp(*(F[:,:,i] for i in range(4)))
 LE[0] = 0
 loc2 = LE[-1,:].argmax()
-n.save('../{0}/IncrementalAnalysis/{0}_AvgNbhdPassingPts.npy'.format(pname), B)
+n.save('../{0}/IncrementalAnalysis/AvgNbhdPassingPts.npy'.format(pname), B)
 header = 'This is the new column filtering, taking a F Nbhd avg\n'
 header += '[0-4]Mean VM-H8-de00-01-00, [5-9]Max VM-H8-de00-01-00, [10-11]Mean, max Classic LEp'
-n.savetxt('../{0}/IncrementalAnalysis/{0}_AvgNbhdResults.dat'.format(pname), 
+n.savetxt('../{0}/IncrementalAnalysis/AvgNbhdResults.dat'.format(pname), 
             fmt='%.6f', delimiter=',', header=header,
             X=n.c_[de.mean(axis=1), de[:, loc, : ], LE.mean(axis=1), LE[:, loc2]] )
 
@@ -280,9 +280,7 @@ p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_Hist.png'.format(pname)
 p.close()
 
 header = "[0]AramX, [1]AramI, [2]Row in d['stage_n']"
-n.savetxt('../{}/IncrementalAnalysis/NewFilterPassingPoints.dat'.format(pname), 
-        fmt='%.0f', delimiter=', ', X=maxij, header=header)
-n.save('../{0}/IncrementalAnalysis/{0}_NewFilterPassingPoints.npy'.format(pname),
+n.save('../{0}/IncrementalAnalysis/NewFilterPassingPoints.npy'.format(pname),
         A.take(maxij[:,2], axis=1))
 
 F = A.take(maxlocs, axis=1)[:,:,8:12]
@@ -294,6 +292,6 @@ LE[0] = 0
 loc2 = LE[-1,:].argmax()
 header = 'This is the new column filtering\n'
 header += '[0-4]Mean VM-H8-de00-01-00, [5-9]Max VM-H8-de00-01-00, [10-11]Mean, max Classic LEp'
-n.savetxt('../{0}/IncrementalAnalysis/{0}_NewFilterResults.dat'.format(pname), 
+n.savetxt('../{0}/IncrementalAnalysis/NewFilterResults.dat'.format(pname), 
             fmt='%.6f', delimiter=',', header=header, 
             X=n.c_[A.mean(axis=1), A[:, loc, : ], LE.mean(axis=1), LE[:,loc2 ]])
