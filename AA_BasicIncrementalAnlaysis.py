@@ -202,8 +202,9 @@ n.savetxt(fname, X=X, header=headerline,
 
 p.style.use('mysty')        
 labs = ['Avg_AllPass', 'Avg_P2P', 'LastMax_TraceBk', 'Max_EachStgP2P','LastMax_Trace_Nbhd']
+alpha = [1,1,1,.25,1]
 for i in range(5):
-    p.plot(dr,X[:,i*5], label=labs[i])
+    p.plot(dr,X[:,i*5], label=labs[i], alpha=alpha[i])
 p.xlabel(xlab)
 p.ylabel('e$_\\mathsf{e}$')
 f.ezlegend(p.gca(), loc=2)

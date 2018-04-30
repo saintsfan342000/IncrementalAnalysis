@@ -255,6 +255,8 @@ if rng.sum() == 1:
     tx += 'OldMaxPt in every stage\n'
     if not(pair(maxIJs[-1][None]) in pair(maxij[:,:2])):
         tx += 'But did not pass new filtering'
+else:
+    tx += "OldMadPt not in\nevery stage!"
 ax1.plot(-dmax[:,9], dmax[:,8],'b--', label='OldMaxPT/Old')
 f.eztext(ax1,tx)
 f.ezlegend(ax1)

@@ -3,3 +3,5 @@ __pycache__/
 Misc_Old/
 *.swp
 *ipynb*
+*png
+AAA_Paper/
