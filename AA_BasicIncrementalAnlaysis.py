@@ -66,7 +66,9 @@ def pair(D):
         raise ValueError('Array must be nx2')
     else:
         return (D[:,0] + D[:,1]) * (D[:,0] + D[:,1] + 1)/2 + D[:,1]
-    
+
+# Point to Point, *only* passing
+deeq1 = n.empty((last+1, 5))
 # Averaging F  for passing points
 deeq2 = n.empty((last+1,5))
 # Point to point for passing points
@@ -112,6 +114,7 @@ for k in trange(1,last+1):
     deeq2[k,0] = (sig00*de00 + sig11*de11 - 2*sig01*de01)/sigvm    
     deeq2[k,1] = (sig00*de00 + sig11*de11 - 2*sig01*de01)/sigh8        
     deeq2[k,2:] = n.c_[de00, de01, de11]
+    
     # For next stage, keep A and assign it to B
     B00t, B01t, B10t, B11t = A00t, A01t, A10t, A11t
     
@@ -132,7 +135,31 @@ for k in trange(1,last+1):
     deeq3[k,0] = deeq(de00, de01, de11, sig00, sig01, sig11, sigvm)
     deeq3[k,1] = deeq(de00, de01, de11, sig00, sig01, sig11, sigh8)
     deeq3[k,2:] = n.c_[de00, de01, de11]
+
+    ## deeq1:  P2P but only considering passing in A and B
+    Bpass = d['stage_{}'.format(k-1)]
+    InB = n.ones(len(A[:,0]), dtype=bool)
+    Btemp = n.empty_like(A)*n.nan
+    for w, (arX, arY) in enumerate(zip(A[:,0], A[:,1])):
+        Brow = Bpass[ (Bpass[:,0]==arX) & (Bpass[:,1]==arY) ].ravel()
+        if Brow.shape[0] == 0:
+            # Then Brow is empty and those aramX,Y points from A aren't in B
+            InB[w] = False
+        else:
+            Btemp[w] = Brow
     
+    if k == 1:
+        Btemp[:,2:] = 1, 0, 0, 1
+        InB[:] = True
+    
+    de00, de01, de11 = increm_strains(*[i.compress(InB) 
+                                        for i in ( 
+                                        (*A[:,2:].T, *Btemp[:,2:].T))])
+    deeq1[k,0] = deeq(de00, de01, de11, sig00, sig01, sig11, sigvm)
+    deeq1[k,1] = deeq(de00, de01, de11, sig00, sig01, sig11, sigh8)
+    deeq1[k,2:] = n.c_[de00, de01, de11]
+
+
     ## deeq4:  Max Point traced all the way back
     wholeA = n.load('../{0}/AramisBinary/{0}_{1}.npy'.format(proj,k)).take([0,1,8,9,10,11], axis=1)
     maxptA = wholeA[ (wholeA[:,0] == maxi[-1]) & (wholeA[:,1] == maxj[-1]) ].ravel()
@@ -188,26 +215,44 @@ deeq4[0] = 0
 deeq5[0] = 0
 deeq6[0] = 0
 
-for i in [deeq2, deeq3, deeq4, deeq5, deeq6]:
+for i in [deeq2, deeq3, deeq4, deeq5, deeq6, deeq1]:
     i[ n.any(n.isnan(i), axis=1) ] = 0
 
 headerline = ('[0-4]AvgF-Passing-VM-H8-de00-01-11, [5-9]PassingP2P-VM-H8, [10-14]MaxPtTracedBack-VM-H8,' + 
-                '[15-19]MaxPtEachStage-VM-H8, [20-24]MaxPtTrace/NbhdFavg')
+                '[15-19]MaxPtEachStage-VM-H8, [20-24]MaxPtTrace/NbhdFavg, [25-29]')
 X = n.c_[deeq2.cumsum(axis=0), deeq3.cumsum(axis=0),
-         deeq4.cumsum(axis=0), deeq5.cumsum(axis=0), deeq6.cumsum(axis=0)]
+         deeq4.cumsum(axis=0), deeq5.cumsum(axis=0), deeq6.cumsum(axis=0), deeq1.cumsum(axis=0)]
 fname='../{0}/IncrementalAnalysis/OldFilteringResults.dat'.format(proj)
 n.savetxt(fname, X=X, header=headerline,
         fmt = '%.6f', delimiter=', ')
 
 
-p.style.use('mysty')        
-labs = ['Avg_AllPass', 'Avg_P2P', 'LastMax_TraceBk', 'Max_EachStgP2P','LastMax_Trace_Nbhd']
-alpha = [1,1,1,.25,1]
-for i in range(5):
-    p.plot(dr,X[:,i*5], label=labs[i], alpha=alpha[i])
-p.xlabel(xlab)
-p.ylabel('e$_\\mathsf{e}$')
-f.ezlegend(p.gca(), loc=2)
-p.axis(xmin=0,ymin=0)
-f.myax(p.gca())
+p.style.use('mysty-sub')        
+labs = ['Avg_AllPass', 'Avg_P2P', 'LastMax_TraceBk', 'Max_EachStgP2P','LastMax_Trace_Nbhd', 'Avg_P2P_PassOnly']
+alpha = [1,1,1,.5,1,1]
+ls = ['-', '--', '-', '-', '--', '-', '--']
+
+dmean = n.genfromtxt('../{}/mean.dat'.format(proj))[:,-1]
+dmax = n.genfromtxt('../{}/MaxPt.dat'.format(proj))[:,10]
+
+fig, ax1, ax2 = f.make21()
+for i in [0,1,5]:
+    ax1.plot(dr,X[:,i*5], label=labs[i], alpha=alpha[i], ls=ls[i])
+ax1.plot(dr, dmean, 'k--', label='Old')
+ax1.set_xlabel(xlab)
+ax1.set_ylabel('e$_\\mathsf{e}$')
+f.ezlegend(ax1, loc=2, title='Mean Values')
+ax1.axis(xmin=0,ymin=0)
+f.myax(ax1)
+
+for i in [2,3,4]:
+    ax2.plot(dr,X[:,i*5], label=labs[i], alpha=alpha[i], ls=ls[i])
+ax2.plot(dr, dmax, 'k--', label='Old')
+ax2.set_xlabel(xlab)
+ax2.set_ylabel('e$_\\mathsf{e}$')
+f.ezlegend(ax2, loc=2, title='Max Values')
+ax2.axis(xmin=0,ymin=0)
+f.myax(ax2)
+
 p.savefig('../{0}/IncrementalAnalysis/OldFilteringResults.png'.format(proj), dpi=125)
+p.close()
