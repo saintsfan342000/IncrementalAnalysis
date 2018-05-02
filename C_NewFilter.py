@@ -59,7 +59,7 @@ def deeq(E,sig):
 try:
     expt = argv[1]
 except IndexError:
-    expt = '24'
+    raise('No experiment given as cmd-line arg')
 # Directory name and prefix of the npy
 pname = 'TT2-{}_FS19SS6'.format(expt)
 
@@ -152,10 +152,16 @@ maxlocs = maxij[:,2]
 allnbhd = n.array(allnbhd).reshape(-1,9).astype(int)
 
 # Now further donwselect by filtering the eps-gamma path
+# number of medians to keep
+num_med = 3
+if expt in [35, '35']:
+    num_med = 4
+if expt not in [31, '31']:
+    start_time = 120
+else:
+    start_time = 600
+start = n.nonzero( STF[:,1] >= STF[-1,1] - start_time )[0]
 fig, ax1, ax2 = f.make12()
-start = n.nonzero( STF[:,1] >= STF[-1,1] - 120 )[0]
-winlen = len(start)-(len(start)%2+0)
-winlen = int(winlen/2) - (int(winlen/2)%2-1)
 ax1.plot(-2*A[start[0]:,maxlocs, 13].mean(axis=1), 
          A[start[0]:,maxlocs,14].mean(axis=1),'k',lw=2, zorder=30000, label='Incr. Mean')
 ax1.set_title('Epsilon vs Gamma for Max Pts')
@@ -166,22 +172,16 @@ ax2.axis(xmin=0)
 keeps = n.ones_like(maxlocs, dtype=bool)
 for k,loc in enumerate(maxlocs[:]):
     l = []
-    # Savgol filter to the last minute of each one
     B = A.take(start, axis=0)
-    y = savgol_filter(B[:,loc,14], winlen, 2)
-    x = savgol_filter(B[:,loc,13], winlen, 2)
-    # Interpolate the filtered y-values using the real x-values
-    y_int = interp1d(x,y, fill_value='extrapolate').__call__(B[:,loc,13])
-    err = ((y_int-y)**2)**.5
-    mn, md, std = err.mean(), n.median(err), err.std()
+    dists = n.sqrt( (B[1:,loc,13]-B[:-1,loc,13])**2 + (B[1:,loc,14]-B[:-1,loc,14])**2 )
+    mn, md, std = dists.mean(), n.median(dists), dists.std()
     #print(len(err), (err>(md+4*std)).sum())
-    if n.any(err>(md+5*std)):
+    if n.any(dists>(num_med*md)):
         keeps[k] = False
         continue
     l.extend( ax1.plot(-2*A[start[0]:,loc, 13], A[start[0]:,loc,14], alpha=0.4 ) )
-   
-    ax1.plot(-2*x,y, color=l[-1].get_color())
     ax2.plot(dr, A[:,loc,15], alpha=0.4)
+
 f.eztext(ax1,'{} total\n{} rejected'.format(len(maxlocs), (~keeps).sum()), fontsize=20);
 ax1.set_xlabel('2e$_{\\theta\\mathsf{x}}$')
 ax1.set_ylabel('e$_\\mathsf{xx}$')
@@ -189,9 +189,9 @@ ax2.set_xlabel('$\\Phi$')
 ax2.set_ylabel('e$_\\mathsf{eq}$')
 f.myax(ax1)
 f.myax(ax2)
-fig.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_FilterPerformance.png'.format(pname), dpi=125)
+fig.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_FilterPerformance_{}med.png'.format(pname, num_med), dpi=125)
 p.close(fig)
-# And now further downselect passing
+# And now compress the keeps
 maxij = maxij.compress(keeps, axis=0)
 maxlocs = maxij[:,2]
 
@@ -230,7 +230,7 @@ f.eztext(ax1,tx)
 f.ezlegend(ax1)
 f.myax(ax1)
 f.myax(ax2)
-p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_PassingPaths.png'.format(pname), dpi=125)
+p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_PassingPaths_{}med.png'.format(pname, num_med), dpi=125)
 
 # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
 # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
@@ -240,17 +240,17 @@ p.tricontourf(A[-1,:,2],A[-1,:,3],A[-1,:,15],256)
 for k,loc in enumerate(maxlocs):
     p.plot(A[-1,loc,2], A[-1,loc,3],marker='${}$'.format(k+1), color='k', ms=10)
     p.title('eeq contour with max points identified')
-p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_Contour.png'.format(pname), dpi=125)
+p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_Contour_{}med.png'.format(pname, num_med), dpi=125)
 p.close()
     
 p.figure()
 p.hist(A[-1,:,15].take(maxlocs))
 p.title('Histogram of Top {} Points Failure Strain'.format(maxij.shape[0]))
-p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_Hist.png'.format(pname), dpi=125)
+p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_Hist_{}med.png'.format(pname, num_med), dpi=125)
 p.close()
 
 header = "[0]AramX, [1]AramI, [2]Row in d['stage_n']"
-n.save('../{0}/IncrementalAnalysis/NewFilterPassingPoints.npy'.format(pname),
+n.save('../{}/IncrementalAnalysis/NewFilterPassingPoints_{}med.npy'.format(pname, num_med),
         A.take(maxij[:,2], axis=1))
 
 F = A.take(maxlocs, axis=1)[:,:,8:12]
@@ -262,6 +262,6 @@ LE[0] = 0
 loc2 = LE[-1,:].argmax()
 header = 'This is the new column filtering\n'
 header += '[0-4]Mean VM-H8-de00-01-00, [5-9]Max VM-H8-de00-01-00, [10-11]Mean, max Classic LEp'
-n.savetxt('../{0}/IncrementalAnalysis/NewFilterResults.dat'.format(pname), 
+n.savetxt('../{}/IncrementalAnalysis/NewFilterResults_{}med.dat'.format(pname, num_med), 
             fmt='%.6f', delimiter=',', header=header, 
             X=n.c_[A.mean(axis=1), A[:, loc, : ], LE.mean(axis=1), LE[:,loc2 ]])
