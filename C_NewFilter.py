@@ -151,38 +151,6 @@ maxij = n.array(maxij).reshape(-1,3).astype(int)
 maxlocs = maxij[:,2]
 allnbhd = n.array(allnbhd).reshape(-1,9).astype(int)
 
-##  Do the F averaging for the maxima
-F = n.empty((A.shape[0],maxij[:,2].shape[0],4))*n.nan
-for k,r in enumerate(allnbhd[:]):
-    for w,z in enumerate(A[:,:,8:12].take(r, axis=1)):
-        F[w,k] = z.mean(axis=0)
-# And now calculate the strains for these averaged F maxima
-# VM, H8, e00, e01, e11
-de = n.empty((last+1, F.shape[1] , 5))
-de[0] = 0
-for k in range(1,F.shape[0]):
-    de[k,:,2:] = n.c_[increm_strains(F[k], F[k-1])]
-    de[k,:,0] = deeq(de[k,:,2:], [i[k] for i in (sig00, sig01, sig11, sigvm)])
-    de[k,:,1] = deeq(de[k,:,2:], [i[k] for i in (sig00, sig01, sig11, sigh8)])
-    de[k]+=de[k-1] # effectively cumsumming as I go
-
-# Construct and save the AvgNbhdPassingPts
-B = A.take(maxij[:,2], axis=1)
-B[:,:,8:12] = F
-B[:,:,12:] = de
-# last+1, npts, 5
-loc = de[-1, :, 0].argmax()
-# last+1 by npts
-LE = LEp(*(F[:,:,i] for i in range(4)))
-LE[0] = 0
-loc2 = LE[-1,:].argmax()
-n.save('../{0}/IncrementalAnalysis/AvgNbhdPassingPts.npy'.format(pname), B)
-header = 'This is the new column filtering, taking a F Nbhd avg\n'
-header += '[0-4]Mean VM-H8-de00-01-00, [5-9]Max VM-H8-de00-01-00, [10-11]Mean, max Classic LEp'
-n.savetxt('../{0}/IncrementalAnalysis/AvgNbhdResults.dat'.format(pname), 
-            fmt='%.6f', delimiter=',', header=header,
-            X=n.c_[de.mean(axis=1), de[:, loc, : ], LE.mean(axis=1), LE[:, loc2]] )
-
 # Now further donwselect by filtering the eps-gamma path
 fig, ax1, ax2 = f.make12()
 start = n.nonzero( STF[:,1] >= STF[-1,1] - 120 )[0]
