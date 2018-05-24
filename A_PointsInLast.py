@@ -1,5 +1,6 @@
 import numpy as n
 from numpy import array, in1d, vstack, hstack, dstack
+from Utilities import pair
 import matplotlib.pyplot as p
 import os, glob, shutil
 from sys import argv
@@ -22,7 +23,6 @@ This script will:
     is identical.  So I can vectorize future incremental calculations.
 '''
 
-
 expt = argv[1]
 # Directory name and prefix of the npy
 pname = 'TT2-{}_FS19SS6'.format(expt)
@@ -37,16 +37,6 @@ Ymin -= thick/2
 Ymax += thick/2
                                       
 last = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',', dtype=int)[-1,0]
-                                       
-def pair(D):
-    '''
-    Cantor pairing function from wikipedia
-    D must be (nx2)
-    '''
-    if (D.ndim != 2) and (D.shape[1] != 2):
-        raise ValueError('Array must be nx2')
-    else:
-        return (D[:,0] + D[:,1]) * (D[:,0] + D[:,1] + 1)/2 + D[:,1]
                                        
 # Empty dict ... I should really use and HDF5 now
 d = {}
@@ -70,25 +60,22 @@ for k in myrange(last,-1,-1):
         d[dname] = A[pts_in_last]
                 
 ij_in_all = ij_last[pts_in_all]
-
 # Now I can loop back though the dict and get rid of the points that aren't 
-shape = []
+D = n.empty((last+1, ij_in_all.shape[0], A.shape[1]))
 for k in range(last,-1,-1):
     dname = 'stage_{}'.format(k)
     A = d[dname].copy()
     ij = pair(A[:,:2])
     keeps = in1d(ij, ij_in_all)
-    d[dname] = A[keeps]
-    shape.append([*(d[dname].shape)])
+    #d[dname] = A[keeps]
+    D[k] = A[keeps]
     # Here's an inefficient little logic check for myself
     if (k<last):
-        dnameprev = 'stage_{}'.format(k+1)
-        ij_prev = pair(d[dnameprev][:,:2])
-        ij = pair(d[dname][:,:2])
-        if (shape[-1][0] != shape[-2][0]) or not n.all(ij==ij_prev):
+        ij_prev = pair(D[k+1,:,:2])
+        ij = pair(D[k,:,:2])
+        if not n.array_equal(ij,ij_prev):
             raise ArithmeticError("You're logic is bad, ya jerk!")
             
-# Now save the dictionary as a compressed numpy array (to save a bit of space)
-# Doesn't appear to take any more time to load up whether it's compressed
-# Takes a few seconds to save though
-n.savez_compressed('../{0}/IncrementalAnalysis/PointsInLast.npz'.format(pname), **d)
+# Now save the 3D array: [last+1, numpts, 12
+#n.savez_compressed('../{0}/IncrementalAnalysis/PointsInLast.npz'.format(pname), **d)
+n.save('../{}/IncrementalAnalysis/PointsInLast.npy'.format(pname), D)

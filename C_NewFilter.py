@@ -1,5 +1,6 @@
 import numpy as n
 from numpy import array, in1d, vstack, hstack, dstack
+from Utilities import increm_strains, increm_rot, deeq, pair
 import matplotlib.pyplot as p
 p.style.use('mysty')
 import figfun as f
@@ -22,44 +23,7 @@ This script will:
 
 '''
 
-def pair(D):
-    '''
-    Cantor pairing function from wikipedia
-    D must be (nx2)
-    '''
-    if (D.ndim != 2) and (D.shape[1] != 2):
-        raise ValueError('Array must be nx2')
-    else:
-        return (D[:,0] + D[:,1]) * (D[:,0] + D[:,1] + 1)/2 + D[:,1]
-
-# Increm strains
-def increm_strains(A,B):
-    '''
-    Requires A and B be (nx4), with cols corresponding to F00, F01, F10, F11
-    '''
-    de00 = (2*((A[:,0] - B[:,0])*(A[:,3] + B[:,3]) - (A[:,1] - B[:,1])*(A[:,2] + B[:,2]))/
-            ((A[:,0] + B[:,0])*(A[:,3] + B[:,3]) - (A[:,1] + B[:,1])*(A[:,2] + B[:,2]))
-           )
-    de01 = ((-(A[:,0] - B[:,0])*(A[:,1] + B[:,1]) + (A[:,0] + B[:,0])*(A[:,1] - B[:,1]) + 
-            (A[:,2] - B[:,2])*(A[:,3] + B[:,3]) - (A[:,2] + B[:,2])*(A[:,3] - B[:,3]))/
-            ((A[:,0] + B[:,0])*(A[:,3] + B[:,3]) - (A[:,1] + B[:,1])*(A[:,2] + B[:,2]))
-           )
-    de11 = (2*((A[:,0] + B[:,0])*(A[:,3] - B[:,3]) - (A[:,1] + B[:,1])*(A[:,2] - B[:,2]))/
-            ((A[:,0] + B[:,0])*(A[:,3] + B[:,3]) - (A[:,1] + B[:,1])*(A[:,2] + B[:,2]))
-           )
-    return de00, de01, de11
-
-def deeq(E,sig):
-    '''
-    E must be  nx3, columns corresponding to de00, de01, de11
-    sig must be a list or tuple of (sig00, sig01, sig11, sigeq)
-    '''
-    return (E[:,0]*sig[0]+E[:,2]*sig[2]-2*E[:,1]*sig[1])/sig[3]
-
-try:
-    expt = argv[1]
-except IndexError:
-    raise('No experiment given as cmd-line arg')
+expt = argv[1]
 # Directory name and prefix of the npy
 pname = 'TT2-{}_FS19SS6'.format(expt)
 
@@ -83,11 +47,7 @@ dmean = n.genfromtxt('../{}/mean.dat'.format(pname), delimiter=',', usecols=(11)
 maxIJs = n.genfromtxt('../{}/max.dat'.format(pname), delimiter=',', usecols=(11,12))
 dmax = n.genfromtxt('../{}/MaxPt.dat'.format(pname), delimiter=',')
 
-d = n.load('../{0}/IncrementalAnalysis/PointsInLastWithStrains.npz'.format(pname))
-A = n.empty((last+1,*d['stage_0'].shape))
-for k in range(last+1):
-    A[k] = d['stage_{}'.format(k)].copy()
-d.close()
+A = n.load('../{0}/IncrementalAnalysis/PointsInLastWithStrains.npy'.format(pname))
 ID = pair(A[-1,:,:2])
 
 dr = n.genfromtxt('../{}/disp-rot.dat'.format(pname), delimiter=',', usecols=(4,5))
@@ -145,7 +105,7 @@ p.axvline(2/3)
 p.xlabel('y$_{\\mathsf{o}}$/t$_{\\mathsf{o}}$')
 p.ylabel('$\\mathsf{e}^{\\mathsf{p}}_{\\mathsf{e}}}$')  
 f.myax(p.gca())  
-fig.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_Profile.png'.format(pname), dpi=125)
+fig.savefig('../{}/IncrementalAnalysis/Profile.png'.format(pname), dpi=125)
 p.close(fig)
 maxij = n.array(maxij).reshape(-1,3).astype(int)
 maxlocs = maxij[:,2]
@@ -189,7 +149,7 @@ ax2.set_xlabel('$\\Phi$')
 ax2.set_ylabel('e$_\\mathsf{eq}$')
 f.myax(ax1)
 f.myax(ax2)
-fig.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_FilterPerformance_{}med.png'.format(pname, num_med), dpi=125)
+fig.savefig('../{}/IncrementalAnalysis/FilterPerformance_{}med.png'.format(pname, num_med), dpi=125)
 p.close(fig)
 # And now compress the keeps
 maxij = maxij.compress(keeps, axis=0)
@@ -212,7 +172,7 @@ ax2.set_xlabel('$\\Phi$')
 ax2.set_ylabel('e$_\\mathsf{eq}$')
 f.eztext(ax2, 'New/Old Max = {:.3f}/{:.3f}\nNew/Old Mean = {:.3f}/{:.3f}'.format(
                 A[-1,maxlocs,15].max(), dmax[-1,-1], A[-1,maxlocs,15].mean(), dmean[-1]))
-
+                
 # Plot old data if it's on there
 rng = pair(maxIJs[-1][None]) == ID
 tx = ''
@@ -230,7 +190,7 @@ f.eztext(ax1,tx)
 f.ezlegend(ax1)
 f.myax(ax1)
 f.myax(ax2)
-p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_PassingPaths_{}med.png'.format(pname, num_med), dpi=125)
+p.savefig('../{}/IncrementalAnalysis/PassingPaths_{}med.png'.format(pname, num_med), dpi=125)
 
 # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
 # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
@@ -240,27 +200,30 @@ p.tricontourf(A[-1,:,2],A[-1,:,3],A[-1,:,15],256)
 for k,loc in enumerate(maxlocs):
     p.plot(A[-1,loc,2], A[-1,loc,3],marker='${}$'.format(k+1), color='k', ms=10)
     p.title('eeq contour with max points identified')
-p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_Contour_{}med.png'.format(pname, num_med), dpi=125)
+p.savefig('../{}/IncrementalAnalysis/Contour_{}med.png'.format(pname, num_med), dpi=125)
 p.close()
     
 p.figure()
 p.hist(A[-1,:,15].take(maxlocs))
 p.title('Histogram of Top {} Points Failure Strain'.format(maxij.shape[0]))
-p.savefig('../{}/IncrementalAnalysis/IncrementalAnalysis_Hist_{}med.png'.format(pname, num_med), dpi=125)
+p.savefig('../{}/IncrementalAnalysis/Hist_{}med.png'.format(pname, num_med), dpi=125)
 p.close()
 
-header = "[0]AramX, [1]AramI, [2]Row in d['stage_n']"
 n.save('../{}/IncrementalAnalysis/NewFilterPassingPoints_{}med.npy'.format(pname, num_med),
         A.take(maxij[:,2], axis=1))
 
 F = A.take(maxlocs, axis=1)[:,:,8:12]
-A = A.take(maxlocs, axis=1).take([15,16,12,13,14], axis=2)
+A = A.take(maxlocs, axis=1)
+maxptij = A[-1,:,15].argmax()
+maxptij = A[-1,maxptij,:2].astype(int)
+A = A.take([15,16,12,13,14], axis=2)
 loc = A[-1, :, 0].argmax()
 # last+1 by npts
 LE = LEp(*(F[:,:,i] for i in range(4)))
 LE[0] = 0
 loc2 = LE[-1,:].argmax()
 header = 'This is the new column filtering\n'
+header += 'Max Pt IJ {}, {}\n'.format(*maxptij)
 header += '[0-4]Mean VM-H8-de00-01-00, [5-9]Max VM-H8-de00-01-00, [10-11]Mean, max Classic LEp'
 n.savetxt('../{}/IncrementalAnalysis/NewFilterResults_{}med.dat'.format(pname, num_med), 
             fmt='%.6f', delimiter=',', header=header, 
