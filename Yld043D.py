@@ -1,4 +1,5 @@
 import numpy as n
+from numpy import hstack, vstack, dstack
 import matplotlib.pyplot as p
 
 '''
@@ -12,19 +13,6 @@ def CoefArray(c12,c13,c21,c23,c31,c32,c44,c55,c66):
     C[3,3], C[4,4], C[5,5] = c44, c55, c66
     return C
 
-def S_prin(C,T,s_vec):
-    '''
-    Give it stress as a vector: srr, sqq, sxx, srq, srx, sqx
-    Returns the principle values of the transformed stress as a vector
-    S1, S2, S3
-    '''
-    S = C@T@s_vec
-    Sm = n.array([S[0], S[3], S[4], 
-                  S[3], S[1], S[5],
-                  S[4], S[5], S[2] ]).reshape(3,3)
-    Spr = n.linalg.eigvalsh(Sm)
-    return Spr
-    
 def PHI(Sq, Sx, Sqx, coefs=None, a=8):
     
     if coefs is None:
@@ -50,26 +38,35 @@ def PHI(Sq, Sx, Sqx, coefs=None, a=8):
     T[3,3], T[4,4], T[5,5] = 3, 3, 3
     T/=3
 
-    eq_sts = n.empty_like(Sq)
-    for k,(sq,sx,sqx) in enumerate(zip(Sq,Sx,Sqx)):
-        s = n.array([0, sq, sx, 0, 0, sqx])
-        Sp = S_prin(Cp, T, s)
-        Spp = S_prin(Cpp, T, s)
-        
-        PHI = ( (Sp[0]-Spp[0])**a + 
-              (Sp[0]-Spp[1])**a + 
-              (Sp[0]-Spp[2])**a + 
-              (Sp[1]-Spp[0])**a + 
-              (Sp[1]-Spp[1])**a + 
-              (Sp[1]-Spp[2])**a + 
-              (Sp[2]-Spp[0])**a + 
-              (Sp[2]-Spp[1])**a + 
-              (Sp[2]-Spp[2])**a
-            )
+    # Vectorized!
+    zero = n.zeros_like(Sq)
+    # (6x6)*(6x6)*(n*6)
+    Sp = n.einsum('ij,jk,...k', Cp, T, n.c_[zero,Sq,Sx,zero,zero,Sqx])
+    Spp = n.einsum('ij,jk,...k', Cpp, T, n.c_[zero,Sq,Sx,zero,zero,Sqx])
+    # Take the Sp vector and turn it into a stack of 3x3 pizza boxes
+    Sp =  hstack((dstack( (Sp[:,[[0]]],Sp[:,[[3]]], Sp[:,[[4]]]) ),
+                  dstack( (Sp[:,[[3]]],Sp[:,[[1]]], Sp[:,[[5]]]) ),
+                  dstack( (Sp[:,[[4]]],Sp[:,[[5]]], Sp[:,[[2]]]) )
+                  ))
+    Spp =  hstack((dstack( (Spp[:,[[0]]],Spp[:,[[3]]], Spp[:,[[4]]]) ),
+                  dstack( (Spp[:,[[3]]],Spp[:,[[1]]], Spp[:,[[5]]]) ),
+                  dstack( (Spp[:,[[4]]],Spp[:,[[5]]], Spp[:,[[2]]]) )
+                  ))
+    Sp = n.linalg.eigvalsh(Sp)
+    Spp = n.linalg.eigvalsh(Spp)
 
-        eq_sts[k] = (0.25*PHI)**0.125
+    PHI = ( (Sp[:,0]-Spp[:,0])**a + 
+      (Sp[:,0]-Spp[:,1])**a + 
+      (Sp[:,0]-Spp[:,2])**a + 
+      (Sp[:,1]-Spp[:,0])**a + 
+      (Sp[:,1]-Spp[:,1])**a + 
+      (Sp[:,1]-Spp[:,2])**a + 
+      (Sp[:,2]-Spp[:,0])**a + 
+      (Sp[:,2]-Spp[:,1])**a + 
+      (Sp[:,2]-Spp[:,2])**a
+    )   
     
-    return eq_sts
+    return (0.25*PHI)**.125
     
 def CalContour(ax=None,N=100,coefs=None,a=8,close=False):
     '''
@@ -87,6 +84,7 @@ def CalContour(ax=None,N=100,coefs=None,a=8,close=False):
     return c.allsegs[0][0]    
 
 def YldLocusPlot():
+    p.style.use('mysty')
     fig = p.figure(figsize=(8,8))
     ax = fig.add_axes([.125,.125,.75,.75])
     anx, any = CalContour(close=True).T
