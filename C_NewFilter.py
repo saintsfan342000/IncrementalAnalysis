@@ -47,6 +47,10 @@ dmean = n.genfromtxt('../{}/mean.dat'.format(pname), delimiter=',', usecols=(11)
 maxIJs = n.genfromtxt('../{}/max.dat'.format(pname), delimiter=',', usecols=(11,12))
 dmax = n.genfromtxt('../{}/MaxPt.dat'.format(pname), delimiter=',')
 
+# [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
+# [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) *)
+# [12,13,14] e00, e01, e11
+# [15,16,17] eeqVM, eeqH8, eeqAnis
 A = n.load('../{0}/IncrementalAnalysis/PointsInLastWithStrains.npy'.format(pname))
 ID = pair(A[-1,:,:2])
 
@@ -194,7 +198,7 @@ p.savefig('../{}/IncrementalAnalysis/PassingPaths_{}med.png'.format(pname, num_m
 
 # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
 # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
-# [12,13,14,15,16] e00, e01, e11, eeqVM, eeqH8
+# [12,13,14,15,16,17] e00, e01, e11, eeqVM, eeqH8, eeqAnis
 p.figure()
 p.tricontourf(A[-1,:,2],A[-1,:,3],A[-1,:,15],256)
 for k,loc in enumerate(maxlocs):
@@ -216,7 +220,7 @@ F = A.take(maxlocs, axis=1)[:,:,8:12]
 A = A.take(maxlocs, axis=1)
 maxptij = A[-1,:,15].argmax()
 maxptij = A[-1,maxptij,:2].astype(int)
-A = A.take([15,16,12,13,14], axis=2)
+A = A.take([15,16,17,12,13,14], axis=2)
 loc = A[-1, :, 0].argmax()
 # last+1 by npts
 LE = LEp(*(F[:,:,i] for i in range(4)))
@@ -224,7 +228,7 @@ LE[0] = 0
 loc2 = LE[-1,:].argmax()
 header = 'This is the new column filtering\n'
 header += 'Max Pt IJ {}, {}\n'.format(*maxptij)
-header += '[0-4]Mean VM-H8-de00-01-00, [5-9]Max VM-H8-de00-01-00, [10-11]Mean, max Classic LEp'
+header += '[0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp'
 n.savetxt('../{}/IncrementalAnalysis/NewFilterResults_{}med.dat'.format(pname, num_med), 
             fmt='%.6f', delimiter=',', header=header, 
             X=n.c_[A.mean(axis=1), A[:, loc, : ], LE.mean(axis=1), LE[:,loc2 ]])

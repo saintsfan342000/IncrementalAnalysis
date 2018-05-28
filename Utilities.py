@@ -56,10 +56,11 @@ def AllMaxes(expt, mode=None):
     maxi, maxj = n.genfromtxt('../{}/max.dat'.format(proj), delimiter=',')[-1,-2:]
     # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
     # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
-    # [12,13,14,15,16] e00, e01, e11, eeqVM, eeqH8
+    # [12,13,14,15,16,17] e00, e01, e11, eeqVM, eeqH8, eeqAnis
     D = n.load('../{}/IncrementalAnalysis/NewFilterPassingPoints_3med.npy'.format(proj))
     locmax = D[-1, :, 15].argmax()
 
+    p.style.use('mysty')
     fig, ax = p.subplots()
     if mode != 'Total':
         ax.plot(dr, oldmax_incr, label='STK16 ({:.0f},{:.0f})'.format(maxi,maxj), zorder=10)
@@ -67,8 +68,9 @@ def AllMaxes(expt, mode=None):
         title='TT2-{} Max Incr. Values'.format(expt)
     else:
         ax.plot(dr, oldmax, label='STK16 ({:.0f},{:.0f})'.format(maxi,maxj), zorder=10)
+        # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
         h = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj),
-                        delimiter=',', usecols=(11,))
+                        delimiter=',', usecols=(13,))
         ax.plot(dr, h, label='New ({:.0f},{:.0f})'.format(*D[-1, locmax, :2]))
         title='TT2-{} Max Total Stn'.format(expt)
 
@@ -187,11 +189,11 @@ def PlotStrainPaths(expt, ij=None, stndef=None, eq=False):
     proj = 'TT2-{}_FS19SS6'.format(expt)
     # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
     # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
-    # [12,13,14,15,16] e00, e01, e11, eeqVM, eeqH8
+    # [12,13,14,15,16,17] e00, e01, e11, eeqVM, eeqH8, eeqAnis
     d = n.load('../{}/IncrementalAnalysis/NewFilterPassingPoints_3med.npy'.format(proj))
     maxloc = d[-1,:,15].argmax()
     maxij = d[-1,maxloc,:2].astype(int)
-    # [0-4]Mean VM-H8-de00-01-11, [5-9]Max VM-H8-de00-01-00, [10-11]Mean, max Classic LEp
+    # [0-5]Mean VM-H8-Anis-de00-01-11, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
     maxp = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj), delimiter=',')
     p.style.use('mysty')
     fig, ax = p.subplots()
@@ -205,10 +207,10 @@ def PlotStrainPaths(expt, ij=None, stndef=None, eq=False):
         if eq == True:
             # Plots hoops strain vs gamma instead
             d[:,:,12:15] = d[:,:,[14,13,12]]
-            maxp[:,[4,9]] = maxp[:,[2,7]]
+            maxp[:,[5,10]] = maxp[:,[2,7]]
         [p.plot(-2*d[:,i,col], d[:,i,14], alpha=0.3) for i in range(d.shape[1])]
-        p.plot(-2*maxp[:,col-5], maxp[:,9], 'k', label='Max ({},{})'.format(*maxij))
-        p.plot(-2*maxp[:,col-10], maxp[:,4], 'k--', label='Mean')
+        p.plot(-2*maxp[:,col-3], maxp[:,11], 'k', label='Max ({},{})'.format(*maxij))
+        p.plot(-2*maxp[:,col-9], maxp[:,5], 'k--', label='Mean')
         if ij is not None:
             p.plot(-2*d[:,loc,col], d[:,loc, 14], 'r', label='{:.0f},{:.0f}'.format(*ij))
     elif stndef == 'Haltom':
@@ -245,7 +247,7 @@ def PlotStrainPaths(expt, ij=None, stndef=None, eq=False):
     p.show()
     return fig, ax
 
-def FailureStrains(vm=True, h8=False):
+def FailureStrains(vm=True, h8=False, anis=False):
     ex = n.genfromtxt('../ExptSummary.dat', delimiter=',')[:,0].astype(int)
     stk = n.genfromtxt('../STK16_FailureStrains.txt', delimiter=',')
     p.style.use('mysty')
@@ -254,15 +256,20 @@ def FailureStrains(vm=True, h8=False):
         lines = []
         triax = stk[ stk[:,0] == x, 1 ]
         proj = 'TT2-{}_FS19SS6'.format(x)
+        # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
         e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj), delimiter=',')[-1]
         if x == [35]:
-            e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_4med.dat'.format(proj), delimiter=',')[-1]
+            pass
+            #e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_4med.dat'.format(proj), delimiter=',')[-1]
         if vm:
             lines.append(ax.plot(triax, e[0], 'gs', label='Mean/VM')[0])
-            lines.append(ax.plot(triax, e[5], 'rs', label='Max/VM')[0])
+            lines.append(ax.plot(triax, e[6], 'rs', label='Max/VM')[0])
         if h8:
             lines.append(ax.plot(triax, e[1], 'go', mfc='none', label='Mean/H8')[0])
-            lines.append(ax.plot(triax, e[6], 'ro', mfc='none', label='Max/H8')[0])
+            lines.append(ax.plot(triax, e[7], 'ro', mfc='none', label='Max/H8')[0])
+        if anis:
+            lines.append(ax.plot(triax, e[2], 'g^', mfc='none', label='Anis/H8')[0])
+            lines.append(ax.plot(triax, e[8], 'r^', mfc='none', label='Anis/H8')[0])        
     
     leg = ax.legend(lines, [i.get_label() for i in lines], loc=1)
     [l.set_color(leg.get_lines()[k].get_mec()) for k,l in enumerate(leg.get_texts())]
@@ -299,7 +306,7 @@ def increm_rot(A,B):
            (A[:,2] - B[:,2])*(A[:,3] + B[:,3]) + (A[:,2] + B[:,2])*(A[:,3] - B[:,3]))/
            ((A[:,0] + B[:,0])*(A[:,3] + B[:,3]) - (A[:,1] + B[:,1])*(A[:,2] + B[:,2]))
          )
-    return dr     
+    return -dr  
 
 def deeq(E,sig):
     '''

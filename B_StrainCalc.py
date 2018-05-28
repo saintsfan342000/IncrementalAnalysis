@@ -1,6 +1,7 @@
 import numpy as n
-from numpy import array, in1d, vstack, hstack, dstack
+from numpy import array, in1d, vstack, hstack, dstack, sin, cos
 from Utilities import increm_strains, increm_rot, deeq, pair
+from Yld043D import PHI
 import matplotlib.pyplot as p
 import figfun as f
 import os, glob, shutil
@@ -43,8 +44,10 @@ else:
 # Load up the npz
 d = n.load('../{0}/IncrementalAnalysis/PointsInLast.npy'.format(pname))
 # An empty 3D array where I'll store each point's de00, de01, de11, and deeqVM, deeqH8
-de = n.empty((last+1, d[0].shape[0], 5))
+de = n.empty((last+1, d[0].shape[0], 6))
+R = n.empty(de.shape[:2])
 de[0] = 0
+R[0] = 0
 # Empty array for appended strains
 dnew = n.empty(( *(d.shape[:2]), d.shape[2]+de.shape[2]))
 dnew[0] = n.c_[d[0], de[0]]
@@ -59,6 +62,15 @@ for k in range(1,last+1):
     de[k,:,:3] = n.c_[increm_strains(A[:,8:], B[:,8:])]
     de[k,:,3] = deeq(de[k,:,:3], [i[k] for i in (sig00, sig01, sig11, sigvm)])
     de[k,:,4] = deeq(de[k,:,:3], [i[k] for i in (sig00, sig01, sig11, sigh8)])
+    R[k,:] = increm_rot(A[:,8:], B[:,8:]) + R[k-1]
+    q = R[k]
+    # sig00t has shape numpts
+    sig00t = sig00[k]*cos(q)**2 + 2*sig01[k]*sin(q)*cos(q) + sig11[k]*sin(q)**2
+    sig01t =  (sig11[k]-sig00[k])*sin(q)*cos(q) + sig01[k]*(cos(q)**2-sin(q)**2)
+    sig11t = sig00[k]*sin(q)**2 - 2*sig01[k]*sin(q)*cos(q) + sig11[k]*cos(q)**2    
+    sigAnis = PHI(sig00t, sig11t, sig01t)
+    de[k,:,5] = deeq(de[k,:,:3], 
+                     [i for i in (sig00[k], sig01[k], sig11[k], sigAnis)] )    
     de[k]+=de[k-1] # effectively cumsumming as I go
     # Now append and save to dnew
     dnew[k] = n.c_[A, de[k]]
@@ -67,7 +79,8 @@ for k in range(1,last+1):
 
 #n.savez_compressed('../{}/IncrementalAnalysis/PointsInLastWithStrains.npz'.format(pname), **dnew)
 n.save('../{}/IncrementalAnalysis/PointsInLastWithStrains.npy'.format(pname), dnew)
-    
+n.save('../{}/IncrementalAnalysis/PointsInLast_Rotations.npy'.format(pname), R)
+
 def slowplots():
     '''
     Some old plots that take a long time to plot that I don't find useful anymore

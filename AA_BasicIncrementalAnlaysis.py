@@ -2,6 +2,7 @@ import numpy as n
 from numpy import array, nanmean, nanstd, sqrt
 from numpy import hstack, vstack, dstack
 n.set_printoptions(linewidth=300,formatter={'float_kind':lambda x:'{:g}'.format(x)})
+from Utilities import increm_strains, deeq, pair
 import matplotlib.pyplot as p
 import figfun as f
 import os
@@ -37,35 +38,6 @@ if expt == '18':
 else:
     dr = n.genfromtxt('../{}/disp-rot.dat'.format(proj), delimiter=',')[:,5]
     xlab = '$\\Phi$'
-
-def increm_strains(A00,A01,A10,A11,B00,B01,B10,B11):
-    de00 = (2*((A00 - B00)*(A11 + B11) - (A01 - B01)*(A10 + B10))/
-            ((A00 + B00)*(A11 + B11) - (A01 + B01)*(A10 + B10))
-           )
-    de01 = ((-(A00 - B00)*(A01 + B01) + (A00 + B00)*(A01 - B01) + 
-            (A10 - B10)*(A11 + B11) - (A10 + B10)*(A11 - B11))/
-            ((A00 + B00)*(A11 + B11) - (A01 + B01)*(A10 + B10))
-           )
-    de11 = (2*((A00 + B00)*(A11 - B11) - (A01 + B01)*(A10 - B10))/
-            ((A00 + B00)*(A11 + B11) - (A01 + B01)*(A10 + B10))
-           )
-    if type(de00) is n.ndarray:
-        return de00.mean(), de01.mean(), de11.mean()
-    else:
-        return de00, de01, de11
-
-def deeq(de00, de01, de11, sig00, sig01, sig11, sigeq):
-    return (sig00*de00 + sig11*de11 - 2*sig01*de01)/sigeq
-
-def pair(D):
-    '''
-    Cantor pairing function from wikipedia
-    D must be (nx2)
-    '''
-    if (D.ndim != 2) and (D.shape[1] != 2):
-        raise ValueError('Array must be nx2')
-    else:
-        return (D[:,0] + D[:,1]) * (D[:,0] + D[:,1] + 1)/2 + D[:,1]
 
 # Point to Point, *only* passing
 deeq1 = n.empty((last+1, 5))
