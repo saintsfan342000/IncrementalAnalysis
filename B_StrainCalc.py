@@ -6,6 +6,7 @@ import matplotlib.pyplot as p
 import figfun as f
 import os, glob, shutil
 from sys import argv
+from tqdm import trange
     
 '''
 This script will:
@@ -15,7 +16,7 @@ This script will:
 
 expt = argv[1]
 # Directory name and prefix of the npy
-pname = 'TT2-{}_FS19SS6'.format(expt)
+pname = 'TTGM-{}_FS19SS6'.format(expt)
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
 
 STF = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',')
@@ -51,7 +52,7 @@ R[0] = 0
 # Empty array for appended strains
 dnew = n.empty(( *(d.shape[:2]), d.shape[2]+de.shape[2]))
 dnew[0] = n.c_[d[0], de[0]]
-for k in range(1,last+1):
+for k in trange(1,last+1):
     # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
     # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) *)
     A = d[k]

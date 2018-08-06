@@ -25,13 +25,11 @@ This script will:
 
 expt = argv[1]
 # Directory name and prefix of the npy
-pname = 'TT2-{}_FS19SS6'.format(expt)
+pname = 'TTGM-{}_FS19SS6'.format(expt)
 
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
 thick = key[ key[:,0] == int(expt), 6 ].ravel()
 
-Xmin, Xmax, Ymin, Ymax = n.genfromtxt('../{}/box_limits.dat'.format(pname),
-                                       delimiter=',')
 STF = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',')
 last = int(STF[-1,0])
 sig00 = STF[:,2]/2  # Hoop sts (assumed 1/2 axial)
@@ -118,12 +116,11 @@ allnbhd = n.array(allnbhd).reshape(-1,9).astype(int)
 # Now further donwselect by filtering the eps-gamma path
 # number of medians to keep
 num_med = 3
-if expt in [35, '35']:
+if expt in [13, '13']:
+    num_med = 6
+elif expt in [15, '15']:
     num_med = 4
-if expt not in [31, '31']:
-    start_time = 120
-else:
-    start_time = 600
+start_time = 120
 start = n.nonzero( STF[:,1] >= STF[-1,1] - start_time )[0]
 fig, ax1, ax2 = f.make12()
 ax1.plot(-2*A[start[0]:,maxlocs, 13].mean(axis=1), 
@@ -134,18 +131,34 @@ ax2.plot(dr, A[:,maxlocs,15].mean(axis=1),'k',lw=2, zorder=30000, label='Incr. M
 ax2.set_title('Eeq vs Rot for Max Pts')
 ax2.axis(xmin=0)
 keeps = n.ones_like(maxlocs, dtype=bool)
-for k,loc in enumerate(maxlocs[:]):
-    l = []
-    B = A.take(start, axis=0)
-    dists = n.sqrt( (B[1:,loc,13]-B[:-1,loc,13])**2 + (B[1:,loc,14]-B[:-1,loc,14])**2 )
-    mn, md, std = dists.mean(), n.median(dists), dists.std()
-    #print(len(err), (err>(md+4*std)).sum())
-    if n.any(dists>(num_med*md)):
-        keeps[k] = False
-        continue
-    l.extend( ax1.plot(-2*A[start[0]:,loc, 13], A[start[0]:,loc,14], alpha=0.4 ) )
-    ax2.plot(dr, A[:,loc,15], alpha=0.4)
+if expt not in [4, '4']:
+    for k,loc in enumerate(maxlocs[:]):
+        l = []
+        B = A.take(start, axis=0)
+        dists = n.sqrt( (B[1:,loc,13]-B[:-1,loc,13])**2 + (B[1:,loc,14]-B[:-1,loc,14])**2 )
+        mn, md, std = dists.mean(), n.median(dists), dists.std()
+        #print(len(err), (err>(md+4*std)).sum())
+        if n.any(dists>(num_med*md)):
+            keeps[k] = False
+            continue
+        l.extend( ax1.plot(-2*A[start[0]:,loc, 13], A[start[0]:,loc,14], alpha=0.4 ) )
+        ax2.plot(dr, A[:,loc,15], alpha=0.4)
+else:
+    for k,loc in enumerate(maxlocs[:]):
+        stages = [n.arange(653,672), n.arange(672, 685)]
+        l = []
+        for start in stages:
+            B = A.take(start, axis=0)
+            dists = n.sqrt( (B[1:,loc,13]-B[:-1,loc,13])**2 + (B[1:,loc,14]-B[:-1,loc,14])**2 )
+            mn, md, std = dists.mean(), n.median(dists), dists.std()
+            #print(len(err), (err>(md+4*std)).sum())
+            if n.any(dists>(num_med*md)):
+                keeps[k] = False
+                continue
+            l.extend( ax1.plot(-2*A[start[0]:,loc, 13], A[start[0]:,loc,14], alpha=0.4 ) )
+            ax2.plot(dr, A[:,loc,15], alpha=0.4)
 
+num_med = 3
 f.eztext(ax1,'{} total\n{} rejected'.format(len(maxlocs), (~keeps).sum()), fontsize=20);
 ax1.set_xlabel('2e$_{\\theta\\mathsf{x}}$')
 ax1.set_ylabel('e$_\\mathsf{xx}$')

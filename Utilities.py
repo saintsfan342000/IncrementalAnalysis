@@ -3,6 +3,7 @@ import matplotlib.pyplot as p
 import figfun as f
 from sys import argv
 from FtfEig import LEp
+from pandas import read_excel
 
 def PlotOldMaxTraceBack(expt):
     '''
@@ -14,7 +15,7 @@ def PlotOldMaxTraceBack(expt):
     labs = ['Avg_AllPass', 'Avg_P2P', 'LastMax_TraceBk', 'Max_EachStgP2P','LastMax_Trace_Nbhd', 'Avg_P2P_PassOnly']
     alpha = [1,1,1,.5,1,1]
     ls = ['-', '--', '-', '-', '--', '-', '--']
-    proj = 'TT2-{}_FS19SS6'.format(expt)
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
     dmean = n.genfromtxt('../{}/mean.dat'.format(proj))[:,-1]
     dmax = n.genfromtxt('../{}/MaxPt.dat'.format(proj), delimiter=',')[:,10]
     # [0-4]AvgF-Passing-VM-H8-de00-01-11, [5-9]PassingP2P-VM-H8, [10-14]MaxPtTracedBack-VM-H8,
@@ -31,7 +32,7 @@ def PlotOldMaxTraceBack(expt):
     ax.plot(dr, dmax, label='STK16')
     ax.set_xlabel(xlab)
     ax.set_ylabel('e$_\\mathsf{e}$')
-    f.ezlegend(ax, loc=2, title='TT2-{} Max Values'.format(expt))
+    f.ezlegend(ax, loc=2, title='TTGM-{} Max Values'.format(expt))
     ax.axis(xmin=0,ymin=0)
     f.myax(ax)
     
@@ -39,16 +40,16 @@ def PlotOldMaxTraceBack(expt):
     ax2.plot(-2*X[:,13], X[:,14])
     ax2.set_xlabel('2e$_{\\theta\\mathsf{x}}$')
     ax2.set_ylabel('e$_\\mathsf{xx}$')
-    f.eztext(ax2, 'TT2-{} Max Values'.format(expt), 'ul')
+    f.eztext(ax2, 'TTGM-{} Max Values'.format(expt), 'ul')
     f.myax(ax2)
     p.show()
 
-def AllMaxes(expt, mode=None):
+def NewOldMax(expt, mode=None):
     '''
     Plots the STK16 max point and the new max point eeq vs rot
     Can plot either Total or incremental method of calculation
     '''
-    proj = 'TT2-{}_FS19SS6'.format(expt)
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
     dr = n.genfromtxt('../{}/disp-rot.dat'.format(proj), delimiter=',')[:,5]
     oldmax = n.genfromtxt('../{}/MaxPt.dat'.format(proj), delimiter=',')[:,10]
     oldmax_incr = n.genfromtxt('../{}/IncrementalAnalysis/OldFilteringResults.dat'.format(proj),
@@ -65,14 +66,14 @@ def AllMaxes(expt, mode=None):
     if mode != 'Total':
         ax.plot(dr, oldmax_incr, label='STK16 ({:.0f},{:.0f})'.format(maxi,maxj), zorder=10)
         ax.plot(dr, D[:, locmax, 15], label='New ({:.0f},{:.0f})'.format(*D[-1, locmax, :2]))
-        title='TT2-{} Max Incr. Values'.format(expt)
+        title='TTGM-{} Max Incr. Values'.format(expt)
     else:
         ax.plot(dr, oldmax, label='STK16 ({:.0f},{:.0f})'.format(maxi,maxj), zorder=10)
         # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
         h = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj),
                         delimiter=',', usecols=(13,))
         ax.plot(dr, h, label='New ({:.0f},{:.0f})'.format(*D[-1, locmax, :2]))
-        title='TT2-{} Max Total Stn'.format(expt)
+        title='TTGM-{} Max Total Stn'.format(expt)
 
     ax.set_xlabel('$\\Phi$')
     ax.set_ylabel('e$_\\mathsf{e}$')
@@ -82,12 +83,15 @@ def AllMaxes(expt, mode=None):
 
     return None
 
-def PlotAllEeqRot(expt=24, ij=None):
+def PlotAllEeqRot(expt=24, ij=None, kelin=False):
     '''
     Plots every maxima's eeq vs rot
     '''
-    proj = 'TT2-{}_FS19SS6'.format(expt)
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
     dr = n.genfromtxt('../{}/disp-rot.dat'.format(proj), delimiter=',')[:,5]
+    # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
+    # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
+    # [12,13,14,15,16,17] e00, e01, e11, eeqVM, eeqH8, eeqAnis
     d = n.load('../{}/IncrementalAnalysis/NewFilterPassingPoints_3med.npy'.format(proj))
     locmax = d[-1, :, 15].argmax()  
     p.style.use('mysty')
@@ -106,19 +110,48 @@ def PlotAllEeqRot(expt=24, ij=None):
             for i in range(d.shape[0]):
                 ee.append(d[i,loc,15])
             p.plot(dr, ee, 'r', label='({},{}) (no pass)'.format(*ij))
+    if kelin and (expt in [1, 4, 5]):
+        cols = {4:(0,1), 1:(2,3), 5:(4,5)}
+        s = read_excel('../Misc/KelinSim.xlsx', parse_cols=cols[expt]).values
+        p.plot(s[:,0], s[:,1], 'b', label='Anal Anis')
     ax.axis(xmin=0,ymin=0)
     ax.set_xlabel('$\\Phi$')
     ax.set_ylabel('e$_\\mathsf{e}$')
-    f.ezlegend(ax, loc=2, hl=2, title='TT2-{}'.format(expt))
+    f.ezlegend(ax, loc=2, hl=2, title='TTGM-{}'.format(expt))
     f.myax(ax)  
-    
-    
+
+def KelinCompare(expt, savedata=False):
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
+    key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+    alpha = key[ key[:,0] == expt, 3].ravel()
+    dr = n.genfromtxt('../{}/disp-rot.dat'.format(proj), delimiter=',')[:,5]
+    d = n.load('../{}/IncrementalAnalysis/NewFilterPassingPoints_3med.npy'.format(proj))
+    mnmx = d[...,17].min(axis=1), d[...,17].max(axis=1)
+    cols = {4:(0,1), 1:(2,3), 5:(4,5)}
+    s = read_excel('../Misc/KelinSim.xlsx', parse_cols=cols[expt]).values
+    if savedata:
+        n.savetxt('KelinCompare_Expt-{}.dat'.format(expt), X=n.c_[dr, d[...,17].mean(axis=1), mnmx[0], mnmx[1]], fmt="%.6f", delimiter=',')
+        n.savetxt('KelinCompare_Expt-{}_kel.dat'.format(expt), X=s, fmt="%.6f", delimiter=',')
+    p.style.use('mysty')
+    fig, ax = p.subplots()
+    p.fill_between(dr, mnmx[0], mnmx[1], alpha=0.1, color='C0')
+    p.plot(dr, mnmx[1], 'C0', label='Exp')
+    p.plot(dr, mnmx[0], 'C0')
+    p.plot(dr, d[:,:,17].mean(axis=1), '--', color='C0')
+    p.plot(s[:,0], s[:,1], 'C1', lw=2, label='Anal Anis')
+    ax.axis(xmin=0,ymin=0)
+    ax.set_xlabel('$\\Phi$')
+    ax.set_ylabel('e$_\\mathsf{e}$')
+    f.ezlegend(ax, loc=2, title='TTGM-{}\n$\\alpha$ = {:g}'.format(expt, alpha[0]))
+    f.myax(ax)      
+    return fig, ax
+
 def PlotAllOldFilters(expt):
     p.style.use('mysty-sub')        
     labs = ['Avg_AllPass', 'Avg_P2P', 'LastMax_TraceBk', 'Max_EachStgP2P','LastMax_Trace_Nbhd', 'Avg_P2P_PassOnly']
     alpha = [1,1,1,.5,1,1]
     ls = ['-', '--', '-', '-', '--', '-', '--']
-    proj = 'TT2-{}_FS19SS6'.format(expt)
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
     dmean = n.genfromtxt('../{}/mean.dat'.format(proj))[:,-1]
     dmax = n.genfromtxt('../{}/MaxPt.dat'.format(proj))[:,10]
     X = n.genfromtxt('../{}/IncrementalAnalysis/OldFilteringResults.dat'.format(proj), delimiter=',')
@@ -148,20 +181,20 @@ def PlotAllOldFilters(expt):
     f.myax(ax2)
     p.show()
    
-def GetMaxPtF(expt):
-    proj = 'TT2-{}_FS19SS6'.format(expt)
+def GetMaxPtF(expt, maxmode='new'):
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
     # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
     # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
     # [12,13,14,15,16] e00, e01, e11, eeqVM, eeqH8    
     d = n.load('../{}/IncrementalAnalysis/PointsInLastWithStrains.npy'.format(proj))
-    maxi, maxj = n.genfromtxt('../{}/max.dat'.format(proj), delimiter=',')[-1,-2:]
-    maxp = pair(n.c_[maxi,maxj])
-    IDs = pair(d[1,:,:2])
-    loc = n.nonzero(IDs == maxp)[0][0]
-    num = len(d.shape[0])
-    F = n.empty((num,4))
-    for i in range(num):
-        F[i] = d['stage_{}'.format(i)][loc][8:12]
+    if maxmode != 'old':
+        loc = d[-1,:,15].argmax()
+    else:
+        maxi, maxj = n.genfromtxt('../{}/max.dat'.format(proj), delimiter=',')[-1,-2:]
+        maxp = pair(n.c_[maxi,maxj])
+        IDs = pair(d[1,:,:2])
+        loc = n.nonzero(IDs == maxp)[0][0]
+    F = d[:,loc,8:12]
     return F
     
 def PlotF(expt, F=None):
@@ -176,7 +209,7 @@ def PlotF(expt, F=None):
     p.xlabel('-F$_\\mathsf{01}$')
     p.ylabel('F$_\\mathsf{11}$')
     if expt is not None:
-        f.eztext(p.gca(), 'TT2-{}'.format(expt), 'ul')
+        f.eztext(p.gca(), 'TTGM-{}'.format(expt), 'ul')
     f.myax(p.gca())
     return F
     
@@ -186,7 +219,7 @@ def PlotStrainPaths(expt, ij=None, stndef=None, eq=False):
     Also highlights the max and mean.
     if ij is not None, then it will plot a given ij point's path
     '''
-    proj = 'TT2-{}_FS19SS6'.format(expt)
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
     # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
     # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
     # [12,13,14,15,16,17] e00, e01, e11, eeqVM, eeqH8, eeqAnis
@@ -242,44 +275,111 @@ def PlotStrainPaths(expt, ij=None, stndef=None, eq=False):
         p.axis(xmin=0, ymin=0)
     ax.set_xlabel('2e$_{\\theta\\mathsf{x}}$')
     ax.set_ylabel('e$_\\mathsf{xx}$')
-    f.ezlegend(ax, loc=2, hl=2, title='TT2-{}'.format(expt))
+    f.ezlegend(ax, loc=2, hl=2, title='TTGM-{}'.format(expt))
     f.myax(ax)
     p.show()
     return fig, ax
 
-def FailureStrains(vm=True, h8=False, anis=False):
-    ex = n.genfromtxt('../ExptSummary.dat', delimiter=',')[:,0].astype(int)
-    stk = n.genfromtxt('../STK16_FailureStrains.txt', delimiter=',')
+def FailureStrains(max=True, mean=True, vm=True, h8=False, anis=False):
+    ex = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+    ex = ex[ (ex[:,1] == 0) & (ex[:,3]!= 0) ][:,0].astype(int)
+    failz = n.genfromtxt('./failstns.dat', delimiter='\t')
     p.style.use('mysty')
     fig, ax = p.subplots()
     for k,x in enumerate(ex):
         lines = []
-        triax = stk[ stk[:,0] == x, 1 ]
-        proj = 'TT2-{}_FS19SS6'.format(x)
+        triax = failz[ failz[:,0] == x, 2 ]
+        proj = 'TTGM-{}_FS19SS6'.format(x)
         # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
         e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj), delimiter=',')[-1]
         if x == [35]:
             pass
             #e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_4med.dat'.format(proj), delimiter=',')[-1]
         if vm:
-            lines.append(ax.plot(triax, e[0], 'gs', label='Mean/VM')[0])
-            lines.append(ax.plot(triax, e[6], 'rs', label='Max/VM')[0])
+            if mean: lines.append(ax.plot(triax, e[0], 'gs', label='Mean/VM')[0])
+            if max: lines.append(ax.plot(triax, e[6], 'rs', label='Max/VM')[0])
         if h8:
-            lines.append(ax.plot(triax, e[1], 'go', mfc='none', label='Mean/H8')[0])
-            lines.append(ax.plot(triax, e[7], 'ro', mfc='none', label='Max/H8')[0])
+            if mean: lines.append(ax.plot(triax, e[1], 'go', mfc='none', label='Mean/H8')[0])
+            if max: lines.append(ax.plot(triax, e[7], 'ro', mfc='none', label='Max/H8')[0])
         if anis:
-            lines.append(ax.plot(triax, e[2], 'g^', mfc='none', label='Anis/H8')[0])
-            lines.append(ax.plot(triax, e[8], 'r^', mfc='none', label='Anis/H8')[0])        
+            if mean: lines.append(ax.plot(triax, e[2], 'g^', mfc='none', label='Mean/Ani')[0])
+            if max:lines.append(ax.plot(triax, e[8], 'r^', mfc='none', label='Max/Ani')[0])        
     
     leg = ax.legend(lines, [i.get_label() for i in lines], loc=1)
     [l.set_color(leg.get_lines()[k].get_mec()) for k,l in enumerate(leg.get_texts())]
+    ax.axis(xmin=0,ymin=0,ymax=1.65)
+    ax.set_xlabel('$\\sigma_{\\mathsf{m}}/\\sigma_{\\mathsf{e}}$')
+    ax.set_ylabel('$\\mathsf{e}^{\\mathsf{p}}_{\\mathsf{e}}$')
+    f.eztext(ax, 'Incremental\nAl-6061-T6', 'bl')
+    f.myax(ax)
+    return fig, ax
+
+def AllMaxesTriax(constit='vm', savedata=False):
+    '''
+    Plots the vm eeq at failure for every passing column max
+    '''
+    ex = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+    ex = ex[ (ex[:,1] == 0) & (ex[:,3]!= 0) ][:,0].astype(int)
+    failz = n.genfromtxt('./failstns.dat', delimiter='\t')
+    col = {'vm':15, 'h8':16, 'anis':17}
+    p.style.use('mysty')
+    fig, ax = p.subplots()
+    for k,x in enumerate(ex):
+        lines = []
+        triax = failz[ failz[:,0] == x, 2 ]
+        proj = 'TTGM-{}_FS19SS6'.format(x)    
+        d = n.load('../{}/IncrementalAnalysis/NewFilterPassingPoints_3med.npy'.format(proj))[-1,:,col[constit]]
+        if x == 10:
+            d = d[ d!= d.min() ]
+        p.plot(n.ones_like(d)*triax, d, '.', linestyle='none', color='C0')
+        p.plot(triax, d.mean(), 'o', color='C1')
+    ax.axis(xmin=0)
     ax.set_xlabel('$\\sigma_{\\mathsf{m}}/\\sigma_{\\mathsf{e}}$')
     ax.set_ylabel('$\\mathsf{e}^{\\mathsf{p}}_{\\mathsf{e}}$')
     f.eztext(ax, 'Incremental\nAl-6061-T6', 'bl')
     f.myax(ax)
     p.show()
-    return fig, ax
-        
+    return fig, ax        
+
+def SetStrainpaths(Mean=True,Max=False):
+    '''
+    Plot axial vs shear strain (mean or max) for all expts)
+    '''
+    ex = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+    ex = ex[ ex[:,3].argsort() ][::-1]
+    ex = ex[ (ex[:,3]!= 0) ]
+    alp = ex[:,3]
+    ex = ex[:,0].astype(int)
+    p.style.use('mysty')
+    fig, ax = p.subplots()
+    for k,(x,a) in enumerate(zip(ex,alp)):
+        proj = 'TTGM-{}_FS19SS6'.format(x)    
+        LL = n.genfromtxt('../{}/prof_stages.dat'.format(proj), delimiter=',', dtype=int)[3]
+        # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
+        D = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj),
+                        delimiter=',')
+        D[:,[4,10]]*=-1
+        if n.isnan(a):
+            a = '$\\infty$'
+        line, = p.plot(D[:,4], D[:,5], label='{}'.format(a))
+        LLmark, = p.plot(D[LL,4], D[LL,5], 'rs')
+        if Max:
+            maxline, = p.plot(D[:,10], D[:,11], color=line.get_color(), alpha=0.3)
+            maxmark, = p.plot(D[LL,10], D[LL,11], 'rs', alpha=0.3)
+        if not Mean:
+            maxline.set_alpha(1)
+            maxmark.set_alpha(1)
+            maxline.set_label(line.get_label())
+            line.remove()
+            LLmark.remove()
+    ax.axis(xmin=-.02, ymin=0)
+    ax.set_xlabel('e$_{\\theta\\mathsf{x}}$')
+    ax.set_ylabel('e$_\\mathsf{xx}$')
+    f.ezlegend(ax, title='Mean'*Mean+'\n'*(Max&Mean)+'Max'*Max, loc=0)
+    f.myax(ax)
+    p.show()
+
+    
 # Increm strains
 def increm_strains(A,B):
     '''
@@ -330,7 +430,7 @@ def MaxInPassing(expt, maxij=None):
     '''
     Tells you which stages of old filtering the STK16 max point passed 
     '''
-    proj = 'TT2-{}_FS19SS6'.format(expt)
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
     maxes = n.genfromtxt('../{}/max.dat'.format(proj), delimiter=',')
     num = maxes.shape[0]
     if maxij is None:
@@ -352,7 +452,7 @@ def PlotOldStrainDef(expt, stndef='Haltom'):
     Obsolete.  See PlotStrainPaths
     '''
     from FtfEig import LEp
-    proj = 'TT2-{}_FS19SS6'.format(expt)
+    proj = 'TTGM-{}_FS19SS6'.format(expt)
     # [0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches 
     # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) 
     # [12,13,14,15,16] e00, e01, e11, eeqVM, eeqH8

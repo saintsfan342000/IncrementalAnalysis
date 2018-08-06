@@ -25,16 +25,17 @@ This script will:
 
 expt = argv[1]
 # Directory name and prefix of the npy
-pname = 'TT2-{}_FS19SS6'.format(expt)
+pname = 'TTGM-{}_FS19SS6'.format(expt)
 
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
 thick = key[ key[:,0] == int(expt), 6 ].ravel()
-# Expand the box limits a bit
 box_lims = n.genfromtxt('../{}/box_limits.dat'.format(pname),
                                        delimiter=',')
-Xmin, Xmax, Ymin, Ymax = box_lims
-Ymin -= thick/2
-Ymax += thick/2
+if expt in [4, '4']:
+    box_lims = n.genfromtxt('../{}/box_limits_discont.dat'.format(pname),
+                                       delimiter=',')
+if box_lims.ndim == 1:
+    box_lims = box_lims[None,:]
                                       
 last = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',', dtype=int)[-1,0]
                                        
@@ -46,7 +47,15 @@ for k in myrange(last,-1,-1):
     # [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) *)
     A = n.load('../{}/AramisBinary/{}_{:.0f}.npy'.format(pname,pname,k))
     if k == last:
-        A = A[ (A[:,2]>=Xmin) & (A[:,2]<=Xmax) & (A[:,3]>=Ymin) & (A[:,3]<=Ymax), :]        
+        rng = n.zeros(A.shape[0], dtype=bool)
+        
+        for z in range(box_lims.shape[0]):
+            Xmin,Xmax,Ymin,Ymax = box_lims[z]
+            Ymin -= thick/2
+            Ymax += thick/2
+            rng |= ((A[:,2]>=Xmin) & (A[:,2]<=Xmax) & (A[:,3]>=Ymin) & (A[:,3]<=Ymax))
+        
+        A = A[ rng, :]        
         d[dname] = A
         ij_last = pair(A[:,:2])
         # Initialize to all True
