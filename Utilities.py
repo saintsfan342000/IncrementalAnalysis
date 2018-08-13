@@ -292,9 +292,6 @@ def FailureStrains(max=True, mean=True, vm=True, h8=False, anis=False):
         proj = 'TTGM-{}_FS19SS6'.format(x)
         # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
         e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj), delimiter=',')[-1]
-        if x == [35]:
-            pass
-            #e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_4med.dat'.format(proj), delimiter=',')[-1]
         if vm:
             if mean: lines.append(ax.plot(triax, e[0], 'gs', label='Mean/VM')[0])
             if max: lines.append(ax.plot(triax, e[6], 'rs', label='Max/VM')[0])
@@ -314,6 +311,45 @@ def FailureStrains(max=True, mean=True, vm=True, h8=False, anis=False):
     f.myax(ax)
     return fig, ax
 
+def CornerFailure(max=False, mean=True, constit='vm'):
+    key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+    key = key[ (key[:,3]!= 0) ]
+    key = key[ key[:,3].argsort() ]
+    corneralphas = n.unique(key[ n.in1d(key[:,1], [1,2]) ][:,3])
+    ex, extype = key[:,:2].astype(int).T
+    failz = n.genfromtxt('./failstns.dat', delimiter='\t')
+
+    columnmapper = {'vm':[0,6], 'h8':[1,7], 'anis':[2,8]}
+    marker = ['C0s', 'C1o', 'C2^']
+    label = ['$\\Sigma=\\alpha\\mathcal{T}$', '$\\Sigma\\rightarrow\\mathcal{{T}}$', '$\\mathcal{{T}}\\rightarrow\\Sigma$']
+    do = False
+    
+    p.style.use('mysty')
+    fig, ax = p.subplots()
+    lines = []
+    for k,(x,xt,a) in enumerate(zip(ex,extype,key[:,3])):
+        triax = failz[ failz[:,0] == x, 2 ]
+        proj = 'TTGM-{}_FS19SS6'.format(x)
+        # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
+        e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj), delimiter=',')[-1]
+        c1,c2 = columnmapper[constit.lower()]
+        if a not in corneralphas:
+            if mean: ax.plot(triax, e[c1], 'C0s', alpha=0.35)
+            if max: ax.plot(triax, e[c2], 'C0s', alpha=0.35)
+        else:
+            if len(lines)==3:
+                lines = []
+                do=True
+            if mean: lines.extend(ax.plot(triax, e[c1], marker[xt], label=[label[xt] if do else ''][0] ))
+            if max: lines.extend(ax.plot(triax, e[c2], marker[xt], label=[label[xt] if do else ''][0]))
+
+    f.ezlegend(ax, markers=True, loc=3)
+    ax.axis(xmin=0,ymin=0,ymax=1.65)
+    ax.set_xlabel('$\\sigma_{\\mathsf{m}}/\\sigma_{\\mathsf{e}}$')
+    ax.set_ylabel('$\\mathsf{e}^{\\mathsf{p}}_{\\mathsf{e}}$')
+    f.eztext(ax, 'Al-6061-T6\n{}\n{}'.format(constit.upper(), 'Mean'*mean+'\n'*(max&mean)+'Max'*max), 'ur')
+    f.myax(ax)
+        
 def AllMaxesTriax(constit='vm', savedata=False):
     '''
     Plots the vm eeq at failure for every passing column max
@@ -341,27 +377,37 @@ def AllMaxesTriax(constit='vm', savedata=False):
     p.show()
     return fig, ax        
 
-def SetStrainpaths(Mean=True,Max=False):
+def SetStrainpaths(Mean=True,Max=False, corners=False, corneronly=False,export=False):
     '''
     Plot axial vs shear strain (mean or max) for all expts)
     '''
-    ex = n.genfromtxt('../ExptSummary.dat', delimiter=',')
-    ex = ex[ ex[:,3].argsort() ][::-1]
-    ex = ex[ (ex[:,3]!= 0) ]
-    alp = ex[:,3]
-    ex = ex[:,0].astype(int)
+    key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+    if corneronly:
+        corners=True
+        corneralphas = n.unique(key[ n.in1d(key[:,1], [1,2]) ][:,3])
+        key = key[ n.in1d(key[:,3],corneralphas) ]
+    if not corners:
+        key = key[ key[:,1]==0 ]
+    key = key[ key[:,3].argsort() ][::-1]
+    key = key[ (key[:,3]!= 0) ]
+    alp = key[:,3]
+    ex = key[:,0].astype(int)
+    extype = key[:,1].astype(int)
     p.style.use('mysty')
     fig, ax = p.subplots()
-    for k,(x,a) in enumerate(zip(ex,alp)):
+    for k,(x,a,xt) in enumerate(zip(ex,alp,extype)):
         proj = 'TTGM-{}_FS19SS6'.format(x)    
         LL = n.genfromtxt('../{}/prof_stages.dat'.format(proj), delimiter=',', dtype=int)[3]
         # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
         D = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj),
                         delimiter=',')
         D[:,[4,10]]*=-1
+        labeladd = ['', '($\\Sigma\\rightarrow\\mathcal{{T}}$)', '($\\mathcal{{T}}\\rightarrow\\Sigma$)']
         if n.isnan(a):
-            a = '$\\infty$'
-        line, = p.plot(D[:,4], D[:,5], label='{}'.format(a))
+            label = '$\\infty$'
+        else:
+            label='{}'.format(a) + labeladd[xt]
+        line, = p.plot(D[:,4], D[:,5], label=label)
         LLmark, = p.plot(D[LL,4], D[LL,5], 'rs')
         if Max:
             maxline, = p.plot(D[:,10], D[:,11], color=line.get_color(), alpha=0.3)
@@ -372,12 +418,28 @@ def SetStrainpaths(Mean=True,Max=False):
             maxline.set_label(line.get_label())
             line.remove()
             LLmark.remove()
+        if export:
+            if k == 0:
+                import pandas as pd
+                fid = pd.ExcelWriter('StrainPaths.xlsx')
+                LLdat = n.empty((len(ex),D.shape[1]+3))
+                header = "MeanVM,H8,Anis,e11,e12,e22,MaxVM,H8,Anis,e11,e12,e22,MeanClasscLEp,MaxLEp".split(',')
+            pd.DataFrame( D ).to_excel(fid, sheet_name='Exp{} _ {}'.format(x,a), 
+                                        index=False, header=header)
+            LLdat[k] = n.hstack(([x,a,xt],D[LL]))
+
+    if export:
+        pd.DataFrame(LLdat).to_excel(fid, sheet_name='LL', 
+                        index=False, header=["Exp", "Alpha", "ExpType"].extend(header))
+        fid.save()            
+            
     ax.axis(xmin=-.02, ymin=0)
     ax.set_xlabel('e$_{\\theta\\mathsf{x}}$')
     ax.set_ylabel('e$_\\mathsf{xx}$')
     f.ezlegend(ax, title='Mean'*Mean+'\n'*(Max&Mean)+'Max'*Max, loc=0)
     f.myax(ax)
     p.show()
+
 
     
 # Increm strains

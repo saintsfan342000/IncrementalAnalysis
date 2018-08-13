@@ -16,12 +16,24 @@ def CoefArray(c12,c13,c21,c23,c31,c32,c44,c55,c66):
 def PHI(Sq, Sx, Sqx, coefs=None, a=8):
     
     if coefs is None:
+        '''
+        #Older constants c. May 2018
         (cp12,cp13,cp21,cp23,
          cp31,cp32,cp44,cp55,cp66) = (0.6553,0.34303,0.95399,1.2779,
                                        0.73534,1.0449,1.2356,1,1)
         (cpp12,cpp13,cpp21,cpp23,
          cpp31,cpp32,cpp44,cpp55,cpp66) = (1.2531,1.4264,0.73178,0.39816,
                                             0.7372,0.76182,0.82781,1,1)
+        
+        '''
+        # Coeffs as of 08/06/18
+        (cp12,cp13,cp21,cp23,
+         cp31,cp32,cp44,cp55,cp66) = (0.6787,0.98478,1.1496,1.0275,
+                                      0.94143, 1.1621,1.3672,1,1)
+        (cpp12,cpp13,cpp21,cpp23,
+         cpp31,cpp32,cpp44,cpp55,cpp66) = (1.0563,0.96185,0.68305,0.71287,
+                                       1.0933,0.84744,0.69489,1,1)
+        
     else:
         (cp12,cp13,cp21,cp23,
              cp31,cp32,cp44,cp55,cp66) = [1 for i in range(9)]
@@ -99,6 +111,6 @@ def YldLocusPlot():
     ax.set_ylabel('$\\frac{\\tau_\\theta}{\\tau_o}$')
     import figfun as f
     f.ezlegend(ax,loc=2)
-    ax.set_title("Kelin's Calibration:  5/22/18")
+    ax.set_title("Kelin's Calibration")
     f.myax(ax, autoscale=.9)
         
