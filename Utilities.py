@@ -288,17 +288,19 @@ def FailureStrains(max=True, mean=True, vm=True, h8=False, anis=False):
     fig, ax = p.subplots()
     for k,x in enumerate(ex):
         lines = []
-        triax = failz[ failz[:,0] == x, 2 ]
         proj = 'TTGM-{}_FS19SS6'.format(x)
         # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
         e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj), delimiter=',')[-1]
         if vm:
+            triax = failz[ failz[:,0] == x, 2 ]
             if mean: lines.append(ax.plot(triax, e[0], 'gs', label='Mean/VM')[0])
             if max: lines.append(ax.plot(triax, e[6], 'rs', label='Max/VM')[0])
         if h8:
+            triax = failz[ failz[:,0] == x, 3 ]
             if mean: lines.append(ax.plot(triax, e[1], 'go', mfc='none', label='Mean/H8')[0])
             if max: lines.append(ax.plot(triax, e[7], 'ro', mfc='none', label='Max/H8')[0])
         if anis:
+            triax = failz[ failz[:,0] == x, 4 ]
             if mean: lines.append(ax.plot(triax, e[2], 'g^', mfc='none', label='Mean/Ani')[0])
             if max:lines.append(ax.plot(triax, e[8], 'r^', mfc='none', label='Max/Ani')[0])        
     
@@ -320,6 +322,7 @@ def CornerFailure(max=False, mean=True, constit='vm'):
     failz = n.genfromtxt('./failstns.dat', delimiter='\t')
 
     columnmapper = {'vm':[0,6], 'h8':[1,7], 'anis':[2,8]}
+    triaxmapper = {'vm':2, 'h8':3, 'anis':4}
     marker = ['C0s', 'C1o', 'C2^']
     label = ['$\\Sigma=\\alpha\\mathcal{T}$', '$\\Sigma\\rightarrow\\mathcal{{T}}$', '$\\mathcal{{T}}\\rightarrow\\Sigma$']
     do = False
@@ -328,7 +331,7 @@ def CornerFailure(max=False, mean=True, constit='vm'):
     fig, ax = p.subplots()
     lines = []
     for k,(x,xt,a) in enumerate(zip(ex,extype,key[:,3])):
-        triax = failz[ failz[:,0] == x, 2 ]
+        triax = failz[ failz[:,0] == x, triaxmapper[constit] ]
         proj = 'TTGM-{}_FS19SS6'.format(x)
         # [0-5]Mean VM-H8-Anis-de00-01-00, [6-11]Max VM-H8-Anis-de00-01-00, [12-13]Mean, max Classic LEp
         e = n.genfromtxt('../{}/IncrementalAnalysis/NewFilterResults_3med.dat'.format(proj), delimiter=',')[-1]
@@ -362,7 +365,7 @@ def AllMaxesTriax(constit='vm', savedata=False):
     fig, ax = p.subplots()
     for k,x in enumerate(ex):
         lines = []
-        triax = failz[ failz[:,0] == x, 2 ]
+        triax = failz[ failz[:,0] == x, col[constit]-13 ]
         proj = 'TTGM-{}_FS19SS6'.format(x)    
         d = n.load('../{}/IncrementalAnalysis/NewFilterPassingPoints_3med.npy'.format(proj))[-1,:,col[constit]]
         if x == 10:

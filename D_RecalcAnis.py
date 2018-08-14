@@ -7,6 +7,7 @@ import figfun as f
 import os, glob, shutil
 from sys import argv
 from tqdm import trange
+from scipy.interpolate import interp1d
     
 '''
 This script will:
@@ -28,9 +29,14 @@ expt = argv[1]
 # Directory name and prefix of the npy
 pname = 'TTGM-{}_FS19SS6'.format(expt)
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+alpha = key[ key[:,0] == int(expt), 4]
+# [0]Alpha, [1]VM, [2]H8, [3]Anis
+alpha_beta = n.genfromtxt('PlaneStn_YldFun.dat', delimiter=',')
+beta_h8 = interp1d(alpha_beta[:,0], alpha_beta[:,2]).__call__(alpha)
 
 STF = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',')
 last = int(STF[-1,0])
+
 sig00 = STF[:,2]/2  # Hoop sts (assumed 1/2 axial)
 sig11 = STF[:,2]   # Ax sts
 sig01 = STF[:,3]   # Sh sts

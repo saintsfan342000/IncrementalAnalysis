@@ -7,6 +7,7 @@ import figfun as f
 import os, glob, shutil
 from sys import argv
 from tqdm import trange
+from scipy.interpolate import interp1d    
     
 '''
 This script will:
@@ -18,15 +19,23 @@ expt = argv[1]
 # Directory name and prefix of the npy
 pname = 'TTGM-{}_FS19SS6'.format(expt)
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+alpha = key[ key[:,0] == int(expt), 4]
+# [0]Alpha, [1]VM, [2]H8, [3]Anis
+alpha_beta = n.genfromtxt('PlaneStn_YldFun.dat', delimiter=',')
 
 STF = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',')
 last = int(STF[-1,0])
-sig00 = STF[:,2]/2  # Hoop sts (assumed 1/2 axial)
+
+beta = interp1d(alpha_beta[:,0], alpha_beta, axis=0).__call__(alpha).ravel()
+# beta[1:] = 0.5 # USED FOR TESTING
+b = {'vm':beta[1], 'h8':beta[2], 'an':beta[3]}
+
+sig00 = STF[:,2]  # Hoop sts (assumed 1/2 axial)
 sig11 = STF[:,2]   # Ax sts
 sig01 = STF[:,3]   # Sh sts
-sigvm = n.sqrt(sig11**2 + sig00**2 - sig00*sig11 + 3*sig01**2)
-s1 = sig00/2 + sig11/2 + n.sqrt(sig00**2 - 2*sig00*sig11 + 4*sig01**2 + sig11**2)/2
-s2 = sig00/2 + sig11/2 - n.sqrt(sig00**2 - 2*sig00*sig11 + 4*sig01**2 + sig11**2)/2
+sigvm = n.sqrt(sig11**2 + (b['vm']*sig00)**2 - (b['vm']*sig00)*sig11 + 3*sig01**2)
+s1 = (b['h8']*sig00)/2 + sig11/2 + n.sqrt((b['h8']*sig00)**2 - 2*(b['h8']*sig00)*sig11 + 4*sig01**2 + sig11**2)/2
+s2 = (b['h8']*sig00)/2 + sig11/2 - n.sqrt((b['h8']*sig00)**2 - 2*(b['h8']*sig00)*sig11 + 4*sig01**2 + sig11**2)/2
 # Hosford eq. sts
 sigh8 = (((s1-s2)**8+(s2-0)**8+(0-s1)**8)/2)**(1/8)
 
@@ -61,17 +70,17 @@ for k in trange(1,last+1):
     if not n.array_equal(A[:,:2], B[:,:2]):
         print("Stage {} arrays aren't equal!")
     de[k,:,:3] = n.c_[increm_strains(A[:,8:], B[:,8:])]
-    de[k,:,3] = deeq(de[k,:,:3], [i[k] for i in (sig00, sig01, sig11, sigvm)])
-    de[k,:,4] = deeq(de[k,:,:3], [i[k] for i in (sig00, sig01, sig11, sigh8)])
+    de[k,:,3] = deeq(de[k,:,:3], [i[k] for i in (sig00*b['vm'], sig01, sig11, sigvm)])
+    de[k,:,4] = deeq(de[k,:,:3], [i[k] for i in (sig00*b['h8'], sig01, sig11, sigh8)])
     R[k,:] = increm_rot(A[:,8:], B[:,8:]) + R[k-1]
     q = R[k]
     # sig00t has shape numpts
-    sig00t = sig00[k]*cos(q)**2 + 2*sig01[k]*sin(q)*cos(q) + sig11[k]*sin(q)**2
-    sig01t =  (sig11[k]-sig00[k])*sin(q)*cos(q) + sig01[k]*(cos(q)**2-sin(q)**2)
-    sig11t = sig00[k]*sin(q)**2 - 2*sig01[k]*sin(q)*cos(q) + sig11[k]*cos(q)**2    
-    sigAnis = PHI(sig00t, sig11t, sig01t)
+    sig00t = (b['an']*sig00[k])*cos(q)**2 + 2*sig01[k]*sin(q)*cos(q) + sig11[k]*sin(q)**2
+    sig01t =  (sig11[k]-(b['an']*sig00[k]))*sin(q)*cos(q) + sig01[k]*(cos(q)**2-sin(q)**2)
+    sig11t = (b['an']*sig00[k])*sin(q)**2 - 2*sig01[k]*sin(q)*cos(q) + sig11[k]*cos(q)**2    
+    sigAnis = PHI(sig00t, sig11t, sig01t) #Dont transform sig00t!!
     de[k,:,5] = deeq(de[k,:,:3], 
-                     [i for i in (sig00[k], sig01[k], sig11[k], sigAnis)] )    
+                     [i for i in (b['an']*sig00[k], sig01[k], sig11[k], sigAnis)] )    
     de[k]+=de[k-1] # effectively cumsumming as I go
     # Now append and save to dnew
     dnew[k] = n.c_[A, de[k]]

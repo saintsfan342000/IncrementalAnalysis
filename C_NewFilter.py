@@ -31,15 +31,6 @@ key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
 thick = key[ key[:,0] == int(expt), 6 ].ravel()
 
 STF = n.genfromtxt('../{}/STF.dat'.format(pname), delimiter=',')
-last = int(STF[-1,0])
-sig00 = STF[:,2]/2  # Hoop sts (assumed 1/2 axial)
-sig11 = STF[:,2]   # Ax sts
-sig01 = STF[:,3]   # Sh sts
-sigvm = n.sqrt(sig11**2 + sig00**2 - sig00*sig11 + 3*sig01**2)
-s1 = sig00/2 + sig11/2 + n.sqrt(sig00**2 - 2*sig00*sig11 + 4*sig01**2 + sig11**2)/2
-s2 = sig00/2 + sig11/2 - n.sqrt(sig00**2 - 2*sig00*sig11 + 4*sig01**2 + sig11**2)/2
-# Hosford eq. sts
-sigh8 = (((s1-s2)**8+(s2-0)**8+(0-s1)**8)/2)**(1/8)
 
 dmean = n.genfromtxt('../{}/mean.dat'.format(pname), delimiter=',', usecols=(11))
 maxIJs = n.genfromtxt('../{}/max.dat'.format(pname), delimiter=',', usecols=(11,12))
